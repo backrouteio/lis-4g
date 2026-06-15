@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NE Simulator — MME / S-GW / P-GW (India 4G LTE)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0d0a1e; }
+    .card { background: #160f2e; border: 1px solid #2d1f5e; }
+    .card-mme { background: #0f1a0d; border: 1px solid #1a3d15; }
+    .card-sgw { background: #1a0f0d; border: 1px solid #3d1f15; }
+    .card-pgw { background: #0d1a1a; border: 1px solid #153d3d; }
+    .input-field { background: #0d0a1e; border: 1px solid #2d1f5e; color: #e2e8f0; }
+    .input-field:focus { outline: none; border-color: #7c3aed; }
+    .badge-act  { background:#14532d33; color:#4ade80; border:1px solid #166534; }
+    .badge-dact { background:#7f1d1d33; color:#f87171; border:1px solid #991b1b; }
+    .log-iri { border-left:3px solid #3b82f6; background:#0a0f1e; padding:8px 10px; border-radius:4px; }
+    .log-cc  { border-left:3px solid #a855f7; background:#0a0f1e; padding:8px 10px; border-radius:4px; }
+    .log-x1  { border-left:3px solid #f97316; background:#0a0f1e; padding:8px 10px; border-radius:4px; }
+    ::-webkit-scrollbar{width:5px} ::-webkit-scrollbar-track{background:#160f2e} ::-webkit-scrollbar-thumb{background:#2d1f5e;border-radius:3px}
+    .ne-tab-active   { background:#7c3aed; color:white; }
+    .ne-tab-inactive { background:#1e1040; color:#a78bfa; border:1px solid #2d1f5e; }
+  </style>
+</head>
+<body class="text-slate-200 min-h-screen">
+
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="fixed inset-0 bg-black/70 z-50 hidden flex items-center justify-center">
+    <div class="bg-slate-900 border border-purple-800 rounded-xl p-6 w-[520px] space-y-4">
+      <div class="font-bold text-white text-base flex items-center justify-between">
+        ⚙️ Network Configuration
+        <button onclick="closeSettings()" class="text-slate-400 hover:text-white">✕</button>
+      </div>
+
+      <div class="space-y-3">
+        <div class="bg-slate-800 rounded-lg p-3">
+          <div class="text-xs text-blue-300 font-semibold mb-2">🖥 LIS SERVER</div>
+          <div class="grid grid-cols-3 gap-2">
+            <div class="col-span-2">
+              <label class="text-xs text-slate-400 block mb-1">LIS Server IP</label>
+              <input id="cfg-lis-ip" class="input-field w-full rounded px-2 py-1.5 text-sm" placeholder="76.13.211.64"/>
+            </div>
+            <div>
+              <label class="text-xs text-slate-400 block mb-1">Port (standalone)</label>
+              <input id="cfg-lis-port" class="input-field w-full rounded px-2 py-1.5 text-sm" placeholder="8001"/>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2 mt-2">
+            <div>
+              <label class="text-xs text-slate-400 block mb-1">IRI-MF Port (X2)</label>
+              <input id="cfg-irimf-port" class="input-field w-full rounded px-2 py-1.5 text-sm" placeholder="8002"/>
+            </div>
+            <div>
+              <label class="text-xs text-slate-400 block mb-1">CC-MF Port (X3)</label>
+              <input id="cfg-ccmf-port" class="input-field w-full rounded px-2 py-1.5 text-sm" placeholder="8003"/>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-slate-800 rounded-lg p-3">
+          <div class="text-xs text-purple-300 font-semibold mb-2">📡 THIS MACHINE (NE Simulator)</div>
+          <div class="grid grid-cols-3 gap-2">
+            <div class="col-span-2">
+              <label class="text-xs text-slate-400 block mb-1">This Machine IP</label>
+              <input id="cfg-ne-ip" class="input-field w-full rounded px-2 py-1.5 text-sm" placeholder="192.168.1.20"/>
+            </div>
+            <div></div>
+          </div>
+          <div class="grid grid-cols-3 gap-2 mt-2">
+            <div>
+              <label class="text-xs text-slate-400 block mb-1">MME X1 Port</label>
+              <input id="cfg-mme-port" class="input-field w-full rounded px-2 py-1.5 text-sm" placeholder="9001"/>
+            </div>
+            <div>
+              <label class="text-xs text-slate-400 block mb-1">SGW X1 Port</label>
+              <input id="cfg-sgw-port" class="input-field w-full rounded px-2 py-1.5 text-sm" placeholder="9002"/>
+            </div>
+            <div>
+              <label class="text-xs text-slate-400 block mb-1">PGW X1 Port</label>
+              <input id="cfg-pgw-port" class="input-field w-full rounded px-2 py-1.5 text-sm" placeholder="9003"/>
+            </div>
+          </div>
+          <div class="text-xs text-slate-500 mt-1">ADMF sends X1 tasks to these ports on this machine</div>
+        </div>
+      </div>
+
+      <div class="bg-purple-950/50 border border-purple-900 rounded-lg p-3 text-xs text-purple-300">
+        <div class="font-semibold mb-1">Firewall rules needed on this NE machine:</div>
+        <code class="text-green-300 block">ufw allow 9001/tcp  # MME X1</code>
+        <code class="text-green-300 block">ufw allow 9002/tcp  # SGW X1</code>
+        <code class="text-green-300 block">ufw allow 9003/tcp  # PGW X1</code>
+      </div>
+
+      <div class="flex gap-3">
+        <button onclick="saveSettings()" class="flex-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg py-2 text-sm font-semibold">Save & Apply</button>
+        <button onclick="closeSettings()" class="px-4 bg-slate-700 hover:bg-slate-600 text-white rounded-lg py-2 text-sm">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="border-b border-purple-900 px-6 py-4 flex items-center justify-between" style="background:#110d22">
+    <div class="flex items-center gap-4">
+      <div class="w-10 h-10 rounded-lg bg-purple-700 flex items-center justify-center font-bold text-sm">NE</div>
+      <div>
+        <div class="font-bold text-white text-base">Network Element Simulator — India 4G LTE</div>
+        <div class="text-xs text-purple-300">Airtel / Jio / Vi / BSNL — MME · S-GW · P-GW — X1 Receiver · X2 IRI Sender · X3 CC Sender</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-3 text-xs">
+      <div id="server-status" class="flex items-center gap-1.5">
+        <div id="status-dot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></div>
+        <span id="status-text" class="text-slate-400">Connecting...</span>
+      </div>
+      <button onclick="openSettings()" class="text-slate-300 hover:text-white border border-slate-700 rounded px-2 py-1">⚙️ Config</button>
+      <span id="cfg-display" class="text-slate-500 font-mono text-xs"></span>
+      <a href="hi1_lea.html"  class="text-blue-400 hover:text-blue-300 border border-blue-900 rounded px-2 py-1">← LEA Portal</a>
+      <a href="index.html"    class="text-purple-400 hover:text-purple-300 border border-purple-800 rounded px-2 py-1">LIS Dashboard →</a>
+    </div>
+  </div>
+
+  <!-- NE selector tabs -->
+  <div class="px-6 py-3 flex gap-3 border-b border-purple-900" style="background:#110d22">
+    <button onclick="selectNE('MME')" id="ne-tab-MME" class="rounded-lg px-4 py-2 text-sm font-semibold ne-tab-active">
+      📡 MME <span class="text-xs font-normal opacity-70">IRI Events</span>
+    </button>
+    <button onclick="selectNE('SGW')" id="ne-tab-SGW" class="rounded-lg px-4 py-2 text-sm font-semibold ne-tab-inactive">
+      🔀 S-GW <span class="text-xs font-normal opacity-70">CC Packets</span>
+    </button>
+    <button onclick="selectNE('PGW')" id="ne-tab-PGW" class="rounded-lg px-4 py-2 text-sm font-semibold ne-tab-inactive">
+      🌐 P-GW <span class="text-xs font-normal opacity-70">CC Packets</span>
+    </button>
+  </div>
+
+  <div class="p-5 grid grid-cols-5 gap-5">
+
+    <!-- LEFT: Controls -->
+    <div class="col-span-2 space-y-4">
+
+      <!-- X1 Task Viewer -->
+      <div class="card rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <div class="w-1.5 h-5 bg-orange-500 rounded"></div>
+            <div class="font-semibold text-white text-sm">X1 Tasks Received</div>
+          </div>
+          <div class="flex gap-2 items-center">
+            <span id="x1-count-badge" class="text-xs bg-orange-900/40 text-orange-300 border border-orange-800 rounded px-2 py-0.5">0 tasks</span>
+            <button onclick="loadX1Tasks()" class="text-xs text-orange-400 hover:text-orange-300">↻</button>
+          </div>
+        </div>
+        <div class="text-xs text-slate-500 mb-3">ADMF pushes X1 tasks here when a warrant is activated. This NE acknowledges and starts intercepting.</div>
+        <div id="x1-tasks-list" class="space-y-2 max-h-48 overflow-auto">
+          <div class="text-slate-500 text-xs text-center py-4">No tasks yet — activate a warrant via LEA portal.</div>
+        </div>
+      </div>
+
+      <!-- MME: X2 IRI Sender -->
+      <div id="mme-panel" class="card rounded-xl p-4 space-y-3">
+        <div class="flex items-center gap-2">
+          <div class="w-1.5 h-5 bg-blue-500 rounded"></div>
+          <div class="font-semibold text-white text-sm">Send X2 IRI Event <span class="text-xs text-slate-500 font-normal">MME → IRI-MF</span></div>
+        </div>
+        <div class="text-xs text-slate-500">MME sends IRI events to IRI-MF for every signaling event (attach, detach, location update, bearer setup).</div>
+
+        <div>
+          <label class="text-xs text-slate-400 mb-1 block">LIID</label>
+          <input id="x2-liid" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="LIID-2026-001"/>
+        </div>
+        <!-- Indian operator quick-select -->
+        <div>
+          <label class="text-xs text-slate-400 mb-1 block">Operator (India)</label>
+          <select id="x2-operator" class="input-field w-full rounded-lg px-3 py-2 text-sm" onchange="setOperator()">
+            <option value="airtel">Airtel (MCC 404, MNC 10)</option>
+            <option value="jio">Jio (MCC 405, MNC 854)</option>
+            <option value="vi">Vi / Vodafone-Idea (MCC 404, MNC 20)</option>
+            <option value="bsnl">BSNL (MCC 404, MNC 07)</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-xs text-slate-400 mb-1 block">Event Type</label>
+            <select id="x2-event" class="input-field w-full rounded-lg px-3 py-2 text-sm">
+              <option>ATTACH</option><option>DETACH</option>
+              <option>BEARER_ESTABLISH</option><option>BEARER_RELEASE</option>
+              <option>LOCATION_UPDATE</option><option>SMS</option>
+              <option>TAU</option><option>HANDOVER</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-slate-400 mb-1 block">IMSI (India)</label>
+            <input id="x2-imsi" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="404101234567890"/>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-xs text-slate-400 mb-1 block">Cell ID (ECGI)</label>
+            <input id="x2-cell" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="404-10-1001-00123"/>
+          </div>
+          <div>
+            <label class="text-xs text-slate-400 mb-1 block">TAI</label>
+            <input id="x2-tai" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="404-10-1001"/>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-xs text-slate-400 mb-1 block">UE IP</label>
+            <input id="x2-ueip" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="10.45.0.1"/>
+          </div>
+          <div>
+            <label class="text-xs text-slate-400 mb-1 block">APN</label>
+            <input id="x2-apn" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="airtelgprs.com"/>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-1.5">
+          <button onclick="setEvt('ATTACH')"          class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">📶 Attach</button>
+          <button onclick="setEvt('BEARER_ESTABLISH')" class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">📡 Bearer↑</button>
+          <button onclick="setEvt('LOCATION_UPDATE')" class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">📍 Location</button>
+          <button onclick="setEvt('SMS')"              class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">💬 SMS</button>
+          <button onclick="setEvt('TAU')"              class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">🔄 TAU</button>
+          <button onclick="setEvt('HANDOVER')"         class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">📲 Handover</button>
+          <button onclick="setEvt('BEARER_RELEASE')"  class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">📴 Bearer↓</button>
+          <button onclick="setEvt('DETACH')"          class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">❌ Detach</button>
+        </div>
+        <button onclick="sendX2()" class="w-full bg-blue-700 hover:bg-blue-600 text-white rounded-lg py-2.5 text-sm font-semibold">
+          Send IRI via X2 →
+        </button>
+        <div id="x2-msg" class="text-xs rounded p-2 hidden"></div>
+      </div>
+
+      <!-- SGW/PGW: X3 CC Sender -->
+      <div id="gw-panel" class="card rounded-xl p-4 space-y-3 hidden">
+        <div class="flex items-center gap-2">
+          <div class="w-1.5 h-5 bg-purple-500 rounded"></div>
+          <div class="font-semibold text-white text-sm">Send X3 CC Packet <span id="gw-label" class="text-xs text-slate-500 font-normal">S-GW → CC-MF</span></div>
+        </div>
+        <div class="text-xs text-slate-500">Gateway mirrors intercepted UE user-plane packets (GTP-U payload) and sends them to CC-MF via X3.</div>
+        <div>
+          <label class="text-xs text-slate-400 mb-1 block">LIID</label>
+          <input id="x3-liid" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="LIID-2026-001"/>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-xs text-slate-400 mb-1 block">Direction</label>
+            <select id="x3-dir" class="input-field w-full rounded-lg px-3 py-2 text-sm">
+              <option value="UPLINK">UPLINK</option>
+              <option value="DOWNLINK">DOWNLINK</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-slate-400 mb-1 block">Protocol</label>
+            <select id="x3-proto" class="input-field w-full rounded-lg px-3 py-2 text-sm">
+              <option value="6">TCP (6)</option>
+              <option value="17">UDP (17)</option>
+              <option value="1">ICMP (1)</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-xs text-slate-400 mb-1 block">Src IP</label>
+            <input id="x3-srcip" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="10.45.0.1"/>
+          </div>
+          <div>
+            <label class="text-xs text-slate-400 mb-1 block">Src Port</label>
+            <input id="x3-srcport" type="number" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="54321"/>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-xs text-slate-400 mb-1 block">Dst IP</label>
+            <input id="x3-dstip" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="8.8.8.8"/>
+          </div>
+          <div>
+            <label class="text-xs text-slate-400 mb-1 block">Dst Port</label>
+            <input id="x3-dstport" type="number" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="443"/>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 mb-1 block">Payload</label>
+          <input id="x3-payload" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="TLS ClientHello..."/>
+        </div>
+        <div class="flex flex-wrap gap-1.5">
+          <button onclick="fillX3('https')" class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">🌐 HTTPS</button>
+          <button onclick="fillX3('http')"  class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">📄 HTTP</button>
+          <button onclick="fillX3('dns')"   class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">🔍 DNS</button>
+          <button onclick="fillX3('voip')"  class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">📞 VoIP</button>
+          <button onclick="fillX3('down')"  class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">⬇ Downlink</button>
+        </div>
+        <button onclick="sendX3()" class="w-full bg-purple-700 hover:bg-purple-600 text-white rounded-lg py-2.5 text-sm font-semibold">
+          Send CC Packet via X3 →
+        </button>
+        <div id="x3-msg" class="text-xs rounded p-2 hidden"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Event Log -->
+    <div class="col-span-3">
+      <div class="card rounded-xl p-5 h-full">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <div class="font-semibold text-white" id="log-title">MME Event Log</div>
+            <div class="text-xs text-slate-400 mt-0.5" id="log-subtitle">IRI events sent via X2 interface</div>
+          </div>
+          <div class="flex gap-3 items-center">
+            <div class="text-xs text-slate-400 bg-slate-800 rounded px-2 py-1">
+              IRI: <span id="iri-count" class="text-blue-400 font-bold">0</span>
+              &nbsp;CC: <span id="cc-count" class="text-purple-400 font-bold">0</span>
+            </div>
+            <button onclick="clearLog()" class="text-xs text-slate-400 hover:text-slate-300">Clear</button>
+          </div>
+        </div>
+
+        <!-- Flow diagram -->
+        <div class="bg-slate-900 rounded-lg p-3 mb-4 flex items-center gap-2 text-xs overflow-x-auto">
+          <div class="text-slate-500 shrink-0">Flow:</div>
+          <div id="flow-ne" class="bg-purple-900/50 border border-purple-700 rounded px-3 py-1.5 text-purple-200 font-semibold shrink-0">MME</div>
+          <div id="flow-iface" class="text-orange-400 font-bold shrink-0">── X2 IRI ──▶</div>
+          <div class="bg-green-900/50 border border-green-700 rounded px-3 py-1.5 text-green-200 font-semibold shrink-0" id="flow-mf">IRI-MF</div>
+          <div class="text-slate-500 shrink-0">──▶</div>
+          <div class="bg-blue-900/50 border border-blue-700 rounded px-3 py-1.5 text-blue-200 font-semibold shrink-0">HI Gateway</div>
+          <div class="text-slate-500 shrink-0">── HI2 ──▶</div>
+          <div class="bg-slate-700 border border-slate-600 rounded px-3 py-1.5 text-slate-200 font-semibold shrink-0">LEA</div>
+        </div>
+
+        <div id="event-log" class="space-y-2 overflow-auto" style="max-height:calc(100vh - 340px)">
+          <div class="text-slate-500 text-xs text-center py-12">No events yet — select an NE and send an event.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── Config ──────────────────────────────────────────────
+    const CFG_KEY = 'lis_ne_config';
+    let cfg = JSON.parse(localStorage.getItem(CFG_KEY) || '{}');
+    function getLisBase()   { return 'http://'+(cfg.lisIp||'localhost')+':'+(cfg.lisPort||'8001'); }
+    function getIriMfBase() { return 'http://'+(cfg.lisIp||'localhost')+':'+(cfg.irimfPort||cfg.lisPort||'8001'); }
+    function getCcMfBase()  { return 'http://'+(cfg.lisIp||'localhost')+':'+(cfg.ccmfPort||cfg.lisPort||'8001'); }
+
+    function openSettings() {
+      document.getElementById('cfg-lis-ip').value     = cfg.lisIp    || '';
+      document.getElementById('cfg-lis-port').value   = cfg.lisPort  || '8001';
+      document.getElementById('cfg-irimf-port').value = cfg.irimfPort|| '8002';
+      document.getElementById('cfg-ccmf-port').value  = cfg.ccmfPort || '8003';
+      document.getElementById('cfg-ne-ip').value      = cfg.neIp     || '';
+      document.getElementById('cfg-mme-port').value   = cfg.mmePort  || '9001';
+      document.getElementById('cfg-sgw-port').value   = cfg.sgwPort  || '9002';
+      document.getElementById('cfg-pgw-port').value   = cfg.pgwPort  || '9003';
+      document.getElementById('settings-modal').classList.remove('hidden');
+    }
+    function closeSettings() { document.getElementById('settings-modal').classList.add('hidden'); }
+    function saveSettings() {
+      cfg = {
+        lisIp:    document.getElementById('cfg-lis-ip').value.trim()     || 'localhost',
+        lisPort:  document.getElementById('cfg-lis-port').value.trim()   || '8001',
+        irimfPort:document.getElementById('cfg-irimf-port').value.trim() || '8001',
+        ccmfPort: document.getElementById('cfg-ccmf-port').value.trim()  || '8001',
+        neIp:     document.getElementById('cfg-ne-ip').value.trim()      || 'localhost',
+        mmePort:  document.getElementById('cfg-mme-port').value.trim()   || '9001',
+        sgwPort:  document.getElementById('cfg-sgw-port').value.trim()   || '9002',
+        pgwPort:  document.getElementById('cfg-pgw-port').value.trim()   || '9003',
+      };
+      localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+      document.getElementById('cfg-display').textContent = 'LIS: '+getLisBase();
+      closeSettings();
+      checkHealth();
+      loadX1Tasks();
+    }
+
+    let currentNE = 'MME';
+    let iriCount = 0, ccCount = 0;
+
+    function selectNE(ne) {
+      currentNE = ne;
+      ['MME','SGW','PGW'].forEach(n => {
+        document.getElementById('ne-tab-'+n).className =
+          'rounded-lg px-4 py-2 text-sm font-semibold '+(n===ne?'ne-tab-active':'ne-tab-inactive');
+      });
+      const isMme = ne === 'MME';
+      document.getElementById('mme-panel').classList.toggle('hidden', !isMme);
+      document.getElementById('gw-panel').classList.toggle('hidden', isMme);
+      document.getElementById('gw-label').textContent = ne === 'SGW' ? 'S-GW → CC-MF' : 'P-GW → CC-MF';
+      document.getElementById('log-title').textContent = ne + ' Event Log';
+      document.getElementById('log-subtitle').textContent = isMme ? 'IRI events sent via X2 interface' : 'CC packets sent via X3 interface';
+      document.getElementById('flow-ne').textContent = ne;
+      document.getElementById('flow-iface').textContent = isMme ? '── X2 IRI ──▶' : '── X3 CC ──▶';
+      document.getElementById('flow-mf').textContent = isMme ? 'IRI-MF' : 'CC-MF';
+      loadX1Tasks();
+    }
+
+    async function checkHealth() {
+      const dot = document.getElementById('status-dot');
+      const txt = document.getElementById('status-text');
+      try {
+        const r = await fetch(getLisBase()+'/health', {signal:AbortSignal.timeout(2000)});
+        if (r.ok) { dot.className='w-2.5 h-2.5 rounded-full bg-green-400'; txt.textContent='LIS Server Online'; txt.className='text-green-400 text-xs'; }
+      } catch { dot.className='w-2.5 h-2.5 rounded-full bg-red-500'; txt.textContent='Server Offline'; txt.className='text-red-400 text-xs'; }
+    }
+
+    async function loadX1Tasks() {
+      try {
+        const tasks = await fetch(getLisBase()+'/x1/tasks/'+currentNE,{signal:AbortSignal.timeout(2000)}).then(r=>r.json());
+        document.getElementById('x1-count-badge').textContent = tasks.length+' tasks';
+        const el = document.getElementById('x1-tasks-list');
+        if (!tasks.length) { el.innerHTML='<div class="text-slate-500 text-xs text-center py-3">No X1 tasks for '+currentNE+' yet.</div>'; return; }
+        el.innerHTML = tasks.map(t=>`
+          <div class="log-x1 text-xs">
+            <div class="flex gap-2 items-center">
+              <span class="font-bold ${t.action==='ACTIVATE'?'text-green-400':'text-red-400'}">${t.action}</span>
+              <span class="text-blue-300">${t.liid}</span>
+              <span class="text-slate-400">${t.intercept_type||''}</span>
+            </div>
+            <div class="text-slate-500 mt-0.5">Target: ${t.target_value} (${t.target_id_type}) · ${fmtTime(t.received_at)}</div>
+          </div>`).join('');
+        // Auto-fill LIID if only one active
+        const active = tasks.filter(t=>t.action==='ACTIVATE');
+        if (active.length===1) {
+          document.getElementById('x2-liid').value = active[0].liid;
+          document.getElementById('x3-liid').value = active[0].liid;
+        }
+      } catch {}
+    }
+
+    async function sendX2() {
+      const msg = document.getElementById('x2-msg');
+      const body = {
+        liid:            document.getElementById('x2-liid').value.trim(),
+        sequence_number: Math.floor(Math.random()*99999),
+        event_type:      document.getElementById('x2-event').value,
+        timestamp:       new Date().toISOString(),
+        imsi:            vv('x2-imsi'), cell_id: vv('x2-cell'), tai: vv('x2-tai'),
+        ue_ip:           vv('x2-ueip'), apn: vv('x2-apn'),
+      };
+      if (!body.liid) { showMsg(msg,'Enter LIID',false); return; }
+      try {
+        const r = await fetch(getIriMfBase()+'/x2/iri',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        const d = await r.json();
+        showMsg(msg, r.ok?`✓ IRI sent — seq ${d.seq}`:`✗ ${d.detail}`, r.ok);
+        if (r.ok) { appendEvent('iri', body, d); }
+      } catch { showMsg(msg,'✗ Server unreachable',false); }
+    }
+
+    async function sendX3() {
+      const msg = document.getElementById('x3-msg');
+      const payload = document.getElementById('x3-payload').value.trim();
+      const body = {
+        liid:        document.getElementById('x3-liid').value.trim(),
+        seq_number:  Math.floor(Math.random()*99999),
+        timestamp:   new Date().toISOString(),
+        direction:   document.getElementById('x3-dir').value,
+        payload_hex: strToHex(payload),
+        src_ip:      vv('x3-srcip'), dst_ip: vv('x3-dstip'),
+        src_port:    parseInt(document.getElementById('x3-srcport').value)||null,
+        dst_port:    parseInt(document.getElementById('x3-dstport').value)||null,
+        protocol:    parseInt(document.getElementById('x3-proto').value),
+        frame_length:payload.length||100,
+      };
+      if (!body.liid) { showMsg(msg,'Enter LIID',false); return; }
+      try {
+        const r = await fetch(getCcMfBase()+'/x3/cc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        const d = await r.json();
+        showMsg(msg, r.ok?`✓ CC sent — seq ${d.seq}`:`✗ ${d.detail}`, r.ok);
+        if (r.ok) appendEvent('cc', body, d);
+      } catch { showMsg(msg,'✗ Server unreachable',false); }
+    }
+
+    function appendEvent(type, req, resp) {
+      const log = document.getElementById('event-log');
+      const placeholder = log.querySelector('.text-slate-500');
+      if (placeholder) placeholder.remove();
+      const div = document.createElement('div');
+      if (type==='iri') {
+        iriCount++;
+        div.className = 'log-iri text-xs';
+        div.innerHTML = `<div class="flex gap-2 items-center mb-1">
+          <span class="text-blue-400 font-bold">[X2/IRI]</span>
+          <span class="text-slate-400">${fmtTime(new Date().toISOString())}</span>
+          <span class="text-yellow-300 font-semibold">${req.event_type}</span>
+          <span class="text-slate-300">LIID: ${req.liid}</span>
+          <span class="text-green-400">seq ${resp.seq}</span>
+        </div>
+        <div class="text-slate-400">IMSI:${req.imsi||'—'} · Cell:${req.cell_id||'—'} · TAI:${req.tai||'—'} · UE-IP:${req.ue_ip||'—'} · APN:${req.apn||'—'}</div>`;
+      } else {
+        ccCount++;
+        const protoName = {6:'TCP',17:'UDP',1:'ICMP',132:'SCTP'}[req.protocol]||req.protocol;
+        div.className = 'log-cc text-xs';
+        div.innerHTML = `<div class="flex gap-2 items-center mb-1">
+          <span class="text-purple-400 font-bold">[X3/CC]</span>
+          <span class="text-slate-400">${fmtTime(new Date().toISOString())}</span>
+          <span class="${req.direction==='UPLINK'?'text-cyan-300':'text-yellow-300'} font-semibold">${req.direction}</span>
+          <span class="text-slate-300">LIID: ${req.liid}</span>
+          <span class="text-green-400">seq ${resp.seq}</span>
+        </div>
+        <div class="text-slate-400">${req.src_ip||'?'}:${req.src_port||'?'} ──[${protoName}]──▶ ${req.dst_ip||'?'}:${req.dst_port||'?'}</div>
+        ${req.payload_hex?`<div class="text-slate-500 mt-0.5 truncate font-mono">0x${req.payload_hex.substring(0,48)}…</div>`:''}`;
+      }
+      log.prepend(div);
+      document.getElementById('iri-count').textContent = iriCount;
+      document.getElementById('cc-count').textContent  = ccCount;
+    }
+
+    // Indian operator profiles
+    const OPERATORS = {
+      airtel: { mcc:'404', mnc:'10', imsi:'404101234567890', cell:'404-10-1001-00123', tai:'404-10-1001', apn:'airtelgprs.com' },
+      jio:    { mcc:'405', mnc:'854',imsi:'405854987654321', cell:'405-854-2001-00456',tai:'405-854-2001',apn:'jionet' },
+      vi:     { mcc:'404', mnc:'20', imsi:'404201122334455', cell:'404-20-3001-00789', tai:'404-20-3001', apn:'portalnmms' },
+      bsnl:   { mcc:'404', mnc:'07', imsi:'404075566778899', cell:'404-07-4001-01000', tai:'404-07-4001', apn:'bsnlnet' },
+    };
+
+    function setOperator() {
+      const op = OPERATORS[document.getElementById('x2-operator').value];
+      if (!op) return;
+      document.getElementById('x2-imsi').value = op.imsi;
+      document.getElementById('x2-cell').value = op.cell;
+      document.getElementById('x2-tai').value  = op.tai;
+      document.getElementById('x2-apn').value  = op.apn;
+    }
+
+    function setEvt(type) {
+      document.getElementById('x2-event').value = type;
+      // Fill Indian defaults if fields are empty
+      const op = OPERATORS[document.getElementById('x2-operator')?.value] || OPERATORS.airtel;
+      if (!document.getElementById('x2-imsi').value) document.getElementById('x2-imsi').value = op.imsi;
+      if (!document.getElementById('x2-cell').value) document.getElementById('x2-cell').value = op.cell;
+      if (!document.getElementById('x2-tai').value)  document.getElementById('x2-tai').value  = op.tai;
+      if (!document.getElementById('x2-ueip').value) document.getElementById('x2-ueip').value = '10.45.0.1';
+      if (!document.getElementById('x2-apn').value)  document.getElementById('x2-apn').value  = op.apn;
+    }
+
+    function fillX3(t) {
+      const m = {
+        https:{src:'10.45.0.1',sp:54321,dst:'142.250.180.46',dp:443,pr:'6',dir:'UPLINK',pl:'TLS ClientHello'},
+        http: {src:'10.45.0.1',sp:54322,dst:'93.184.216.34', dp:80, pr:'6',dir:'UPLINK',pl:'GET / HTTP/1.1'},
+        dns:  {src:'10.45.0.1',sp:53001,dst:'8.8.8.8',       dp:53, pr:'17',dir:'UPLINK',pl:'DNS Query'},
+        voip: {src:'10.45.0.1',sp:16384,dst:'203.0.113.5',   dp:5004,pr:'17',dir:'UPLINK',pl:'RTP Voice'},
+        down: {src:'142.250.180.46',sp:443,dst:'10.45.0.1',  dp:54321,pr:'6',dir:'DOWNLINK',pl:'TLS App Data'},
+      };
+      const s=m[t]; if(!s) return;
+      document.getElementById('x3-srcip').value=s.src; document.getElementById('x3-srcport').value=s.sp;
+      document.getElementById('x3-dstip').value=s.dst; document.getElementById('x3-dstport').value=s.dp;
+      document.getElementById('x3-proto').value=s.pr;  document.getElementById('x3-dir').value=s.dir;
+      document.getElementById('x3-payload').value=s.pl;
+    }
+
+    function clearLog() {
+      document.getElementById('event-log').innerHTML='<div class="text-slate-500 text-xs text-center py-12">Log cleared.</div>';
+      iriCount=0; ccCount=0;
+      document.getElementById('iri-count').textContent='0';
+      document.getElementById('cc-count').textContent='0';
+    }
+
+    function vv(id) { return document.getElementById(id)?.value?.trim()||null; }
+    function fmtTime(d) { return d?new Date(d).toLocaleTimeString():''; }
+    function showMsg(el,txt,ok) {
+      el.textContent=txt; el.classList.remove('hidden');
+      el.className='text-xs rounded p-2 '+(ok?'bg-green-900/40 text-green-300':'bg-red-900/40 text-red-300');
+    }
+    function strToHex(s) {
+      if(!s) return '';
+      return Array.from(new TextEncoder().encode(s)).map(b=>b.toString(16).padStart(2,'0')).join('');
+    }
+
+    // Apply saved config on load
+    document.getElementById('cfg-display').textContent = 'LIS: '+getLisBase();
+    checkHealth(); setInterval(checkHealth,6000);
+    loadX1Tasks(); setInterval(loadX1Tasks, 5000);
+  </script>
+</body>
+</html>
