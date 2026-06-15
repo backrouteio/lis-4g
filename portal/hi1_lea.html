@@ -1,609 +1,916 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>LEA Portal — HI1 Warrant Management (India / DoT)</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body { background: #0a0f1e; }
-    .card { background: #0f1a2e; border: 1px solid #1e3a5f; }
-    .input-field { background: #0a0f1e; border: 1px solid #1e3a5f; color: #e2e8f0; }
-    .input-field:focus { outline: none; border-color: #3b82f6; }
-    .badge-active   { background:#14532d33; color:#4ade80; border:1px solid #166534; }
-    .badge-inactive { background:#7f1d1d33; color:#f87171; border:1px solid #991b1b; }
-    .badge-iri  { background:#1e3a5f; color:#93c5fd; }
-    .badge-cc   { background:#3b1f5e; color:#c4b5fd; }
-    .badge-both { background:#1c3a2e; color:#6ee7b7; }
-    ::-webkit-scrollbar{width:5px} ::-webkit-scrollbar-track{background:#0f1a2e} ::-webkit-scrollbar-thumb{background:#1e3a5f;border-radius:3px}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LEA Portal — HI1/HI2/HI3 | India 4G LTE LIS</title>
+<style>
+  :root {
+    --bg:#0d1117; --surface:#161b22; --border:#30363d;
+    --text:#e6edf3; --muted:#8b949e; --accent:#58a6ff;
+    --green:#3fb950; --red:#f85149; --yellow:#d29922; --orange:#db6d28; --purple:#bc8cff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',monospace;font-size:13px;}
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 20px;
+    display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+  .logo{display:flex;align-items:center;gap:10px;}
+  .logo-icon{width:32px;height:32px;background:linear-gradient(135deg,#8b5cf6,#a78bfa);border-radius:6px;
+    display:flex;align-items:center;justify-content:center;font-size:16px;}
+  .logo-text h1{font-size:15px;font-weight:600;}
+  .logo-text p{font-size:11px;color:var(--muted);}
+  .header-right{display:flex;align-items:center;gap:12px;}
+  .badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+  .badge-green{background:rgba(63,185,80,.15);color:var(--green);border:1px solid rgba(63,185,80,.3);}
+  .badge-red{background:rgba(248,81,73,.15);color:var(--red);border:1px solid rgba(248,81,73,.3);}
+  .badge-purple{background:rgba(188,140,255,.15);color:var(--purple);border:1px solid rgba(188,140,255,.3);}
+  .sys-time{color:var(--muted);font-size:11px;font-family:monospace;}
+
+  /* Config */
+  .config-bar{background:#0e1929;border-bottom:1px solid var(--border);
+    padding:8px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .cfg-group{display:flex;align-items:center;gap:6px;}
+  .cfg-group label{color:var(--muted);font-size:11px;white-space:nowrap;}
+  .cfg-input{background:var(--surface);border:1px solid var(--border);color:var(--text);
+    padding:4px 8px;border-radius:4px;font-size:12px;width:130px;}
+  .cfg-input:focus{outline:none;border-color:var(--accent);}
+  .sep{color:var(--border);}
+
+  /* Tabs */
+  .tab-bar{background:var(--surface);border-bottom:1px solid var(--border);
+    padding:0 20px;display:flex;gap:0;}
+  .tab{padding:12px 20px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;
+    color:var(--muted);transition:all .2s;white-space:nowrap;}
+  .tab:hover{color:var(--text);}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .tab-panel{display:none;padding:20px;}
+  .tab-panel.active{display:block;}
+
+  /* Buttons */
+  .btn{padding:7px 16px;border-radius:6px;font-size:13px;cursor:pointer;border:1px solid var(--border);
+    background:var(--surface);color:var(--text);transition:all .2s;font-weight:500;}
+  .btn:hover{background:#1f2937;border-color:var(--accent);color:var(--accent);}
+  .btn-primary{background:#1f6feb;border-color:#1f6feb;color:#fff;}
+  .btn-primary:hover{background:#388bfd;border-color:#388bfd;}
+  .btn-danger{background:rgba(248,81,73,.15);border-color:var(--red);color:var(--red);}
+  .btn-danger:hover{background:rgba(248,81,73,.3);}
+  .btn-sm{padding:4px 12px;font-size:12px;}
+
+  /* Form */
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .form-group{display:flex;flex-direction:column;gap:4px;}
+  .form-group.full{grid-column:1/-1;}
+  label.lbl{font-size:11px;color:var(--muted);font-weight:500;letter-spacing:.3px;}
+  input[type=text],input[type=datetime-local],input[type=number],select,textarea{
+    background:#0d1117;border:1px solid var(--border);color:var(--text);
+    padding:7px 10px;border-radius:5px;font-size:12px;width:100%;}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);}
+  select option{background:#161b22;}
+
+  /* Panels */
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px;}
+  .panel-head{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;
+    align-items:center;justify-content:space-between;background:rgba(255,255,255,.02);}
+  .panel-title{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;}
+  .panel-actions{display:flex;gap:8px;align-items:center;}
+  .panel-body{padding:16px;}
+
+  /* Log */
+  .log-area{background:#0a0e13;border:1px solid var(--border);border-radius:5px;
+    padding:10px;font-family:monospace;font-size:11px;overflow:auto;color:var(--text);}
+  .log-entry{padding:6px 12px;border-bottom:1px solid rgba(48,54,61,.4);display:grid;gap:8px;font-size:12px;}
+  .log-entry:hover{background:rgba(255,255,255,.02);}
+  .log-empty{padding:24px;text-align:center;color:var(--muted);font-style:italic;}
+  .log-col-hdr{display:grid;gap:0;padding:6px 12px;border-bottom:1px solid var(--border);
+    font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+
+  /* Pills */
+  .pill{padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;display:inline-block;}
+  .pill-green{background:rgba(63,185,80,.15);color:var(--green);}
+  .pill-red{background:rgba(248,81,73,.15);color:var(--red);}
+  .pill-blue{background:rgba(88,166,255,.15);color:var(--accent);}
+  .pill-yellow{background:rgba(210,153,34,.15);color:var(--yellow);}
+  .pill-orange{background:rgba(219,109,40,.15);color:var(--orange);}
+  .pill-gray{background:rgba(139,148,158,.15);color:var(--muted);}
+  .pill-purple{background:rgba(188,140,255,.15);color:var(--purple);}
+
+  .mono{font-family:monospace;font-size:11px;}
+  .count-badge{background:rgba(88,166,255,.15);color:var(--accent);border:1px solid rgba(88,166,255,.3);
+    padding:1px 8px;border-radius:20px;font-size:11px;}
+  .pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);
+    animation:pulse 2s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+  .spin{animation:spin 1s linear infinite;display:inline-block;}
+  @keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+
+  /* SOAP message panel */
+  .soap-msg{background:#0a0e13;border:1px solid var(--border);border-radius:5px;padding:10px;
+    font-family:monospace;font-size:10.5px;max-height:220px;overflow:auto;color:#89d4f5;
+    white-space:pre-wrap;word-break:break-all;}
+  .soap-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;}
+
+  /* Protocol toggle */
+  .proto-toggle{display:flex;align-items:center;gap:8px;}
+  .proto-toggle label{font-size:12px;color:var(--text);}
+  input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;}
+
+  /* Protocol badge */
+  .proto-badge{padding:2px 8px;border-radius:3px;font-size:11px;font-weight:700;}
+  .proto-etsi{background:rgba(88,166,255,.15);color:var(--accent);border:1px solid rgba(88,166,255,.3);}
+  .proto-rest{background:rgba(63,185,80,.15);color:var(--green);border:1px solid rgba(63,185,80,.3);}
+
+  /* SFTP status */
+  .sftp-status{display:flex;flex-direction:column;gap:8px;}
+  .sftp-row{display:flex;justify-content:space-between;align-items:center;
+    padding:8px 12px;background:rgba(0,0,0,.2);border-radius:5px;border:1px solid var(--border);}
+  .sftp-row-label{font-size:12px;color:var(--muted);}
+  .sftp-row-val{font-family:monospace;font-size:12px;}
+</style>
 </head>
-<body class="text-slate-200 min-h-screen">
+<body>
 
-  <!-- Settings Modal -->
-  <div id="settings-modal" class="fixed inset-0 bg-black/70 z-50 hidden flex items-center justify-center">
-    <div class="bg-slate-900 border border-blue-800 rounded-xl p-6 w-[480px] space-y-4">
-      <div class="font-bold text-white text-base flex items-center justify-between">
-        ⚙️ Network Configuration
-        <button onclick="closeSettings()" class="text-slate-400 hover:text-white">✕</button>
-      </div>
-      <div class="text-xs text-slate-400">Configure IP addresses and ports for each component.</div>
-
-      <div class="space-y-3">
-        <div class="bg-slate-800 rounded-lg p-3">
-          <div class="text-xs text-blue-300 font-semibold mb-2">🖥 LIS SERVER (ADMF)</div>
-          <div class="grid grid-cols-3 gap-2">
-            <div class="col-span-2">
-              <label class="text-xs text-slate-400 block mb-1">IP Address</label>
-              <input id="cfg-lis-ip" class="input-field w-full rounded px-2 py-1.5 text-sm" placeholder="76.13.211.64"/>
-            </div>
-            <div>
-              <label class="text-xs text-slate-400 block mb-1">Port</label>
-              <input id="cfg-lis-port" class="input-field w-full rounded px-2 py-1.5 text-sm" placeholder="8001"/>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-slate-800 rounded-lg p-3">
-          <div class="text-xs text-green-300 font-semibold mb-2">📡 LEA HI2/HI3 RECEIVER (This machine)</div>
-          <div class="grid grid-cols-3 gap-2">
-            <div class="col-span-2">
-              <label class="text-xs text-slate-400 block mb-1">This Machine IP</label>
-              <input id="cfg-lea-ip" class="input-field w-full rounded px-2 py-1.5 text-sm" placeholder="192.168.1.10"/>
-            </div>
-            <div>
-              <label class="text-xs text-slate-400 block mb-1">HI2/HI3 Port</label>
-              <input id="cfg-lea-port" class="input-field w-full rounded px-2 py-1.5 text-sm" placeholder="8443"/>
-            </div>
-          </div>
-          <div class="text-xs text-slate-500 mt-1">Used as the delivery_address in warrant (where LIS sends IRI/CC)</div>
-        </div>
-      </div>
-
-      <div class="bg-blue-950/50 border border-blue-900 rounded-lg p-3 text-xs text-blue-300">
-        <div class="font-semibold mb-1">Firewall rules needed on LIS server:</div>
-        <code class="text-green-300">ufw allow 8001/tcp &nbsp;# HI1 from LEA</code>
-      </div>
-
-      <div class="flex gap-3">
-        <button onclick="saveSettings()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg py-2 text-sm font-semibold">Save & Apply</button>
-        <button onclick="closeSettings()" class="px-4 bg-slate-700 hover:bg-slate-600 text-white rounded-lg py-2 text-sm">Cancel</button>
-      </div>
+<!-- ══ HEADER ══ -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🏛️</div>
+    <div class="logo-text">
+      <h1>LEA Portal — Lawful Enforcement Agency</h1>
+      <p>HI1 Warrant Activation &nbsp;|&nbsp; HI2 IRI Receiver &nbsp;|&nbsp; HI3 CC Receiver &nbsp;|&nbsp; India 4G LTE LIS</p>
     </div>
   </div>
-
-  <!-- Header -->
-  <div class="border-b border-blue-900 px-6 py-4 flex items-center justify-between" style="background:#0d1628">
-    <div class="flex items-center gap-4">
-      <div class="w-10 h-10 rounded-lg bg-blue-700 flex items-center justify-center font-bold text-lg">LEA</div>
-      <div>
-        <div class="font-bold text-white text-base">Law Enforcement Agency Portal — India</div>
-        <div class="text-xs text-blue-300">HI1 Interface — Warrant Management → ADMF &nbsp;|&nbsp; DoT / MHA Authorised</div>
-      </div>
-    </div>
-    <div class="flex items-center gap-3 text-xs">
-      <div id="server-status" class="flex items-center gap-1.5">
-        <div id="status-dot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></div>
-        <span id="status-text" class="text-slate-400">Connecting...</span>
-      </div>
-      <button onclick="openSettings()" class="text-slate-300 hover:text-white border border-slate-700 hover:border-slate-500 rounded px-2 py-1">⚙️ Config</button>
-      <span id="cfg-display" class="text-slate-500 font-mono"></span>
-      <a href="index.html" class="text-blue-400 hover:text-blue-300 border border-blue-800 rounded px-2 py-1">LIS Dashboard →</a>
-    </div>
+  <div class="header-right">
+    <span id="srvStatus" class="badge badge-red">● LIS Disconnected</span>
+    <span class="sys-time" id="sysTime"></span>
   </div>
+</header>
 
-  <div class="p-6 grid grid-cols-5 gap-6">
+<!-- ══ CONFIG BAR ══ -->
+<div class="config-bar">
+  <div class="cfg-group">
+    <label>LIS Server:</label>
+    <input class="cfg-input" id="cfgLisIp" value="76.13.211.64" placeholder="LIS IP">
+    <input class="cfg-input" id="cfgLisPort" value="8001" placeholder="Port" style="width:65px">
+  </div>
+  <span class="sep">|</span>
+  <div class="cfg-group">
+    <label>LEA HI2 Endpoint:</label>
+    <input class="cfg-input" id="cfgLeaIp" value="" placeholder="LEA IP (optional)">
+    <input class="cfg-input" id="cfgLeaPort" value="8443" placeholder="Port" style="width:65px">
+  </div>
+  <span class="sep">|</span>
+  <div class="cfg-group">
+    <label>SFTP (HI3):</label>
+    <input class="cfg-input" id="cfgSftpHost" value="" placeholder="LEA SFTP host">
+    <input class="cfg-input" id="cfgSftpPort" value="2222" placeholder="Port" style="width:65px">
+    <input class="cfg-input" id="cfgSftpUser" value="lea" placeholder="User" style="width:80px">
+    <input class="cfg-input" id="cfgSftpPass" value="" placeholder="Password" style="width:100px;font-family:monospace">
+  </div>
+  <button class="btn btn-primary btn-sm" onclick="saveConfig()">Save Config</button>
+</div>
 
-    <!-- LEFT: Activate Form -->
-    <div class="col-span-2 space-y-4">
-      <div class="card rounded-xl p-5 space-y-4">
-        <div class="flex items-center gap-2">
-          <div class="w-1.5 h-5 bg-blue-500 rounded"></div>
-          <div class="font-semibold text-white">New Intercept Warrant</div>
+<!-- ══ TABS ══ -->
+<div class="tab-bar">
+  <div class="tab active" onclick="showTab('hi1')">🔐 HI1 — Warrant Activation</div>
+  <div class="tab" onclick="showTab('hi2')">📶 HI2 — IRI Events <span class="count-badge" id="hi2TabCount">0</span></div>
+  <div class="tab" onclick="showTab('hi3')">📦 HI3 — CC Content <span class="count-badge" id="hi3TabCount">0</span></div>
+  <div class="tab" onclick="showTab('hi1deact')">🚫 HI1 — Deactivate</div>
+</div>
+
+<!-- ══ HI1 ACTIVATE ══ -->
+<div class="tab-panel active" id="tab-hi1">
+  <div style="display:grid;grid-template-columns:1fr 400px;gap:16px;">
+
+    <!-- Left: Form -->
+    <div>
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">🔐 Activate Interception Warrant — HI1 / ADMF</div>
+          <div class="panel-actions">
+            <div class="proto-toggle">
+              <input type="checkbox" id="useSOAP" checked onchange="updateProtoDisplay()">
+              <label for="useSOAP">ETSI TS 103 120 SOAP/XML</label>
+            </div>
+            <span id="protoBadge" class="proto-badge proto-etsi">SOAP/XML</span>
+          </div>
         </div>
+        <div class="panel-body">
+          <div class="form-grid">
 
-        <div>
-          <label class="text-xs text-blue-300 mb-1 block">Lawful Intercept ID (LIID) *</label>
-          <input id="f-liid" class="input-field w-full rounded-lg px-3 py-2.5 text-sm" placeholder="e.g. LIID-IN-2026-001"/>
-          <div class="text-xs text-slate-500 mt-1">Unique identifier assigned by MHA / State Home Secretary</div>
-        </div>
-
-        <div>
-          <label class="text-xs text-blue-300 mb-1 block">LEA Agency ID *</label>
-          <select id="f-leaid" class="input-field w-full rounded-lg px-3 py-2.5 text-sm">
-            <option value="IB-001">Intelligence Bureau (IB)</option>
-            <option value="CBI-001">Central Bureau of Investigation (CBI)</option>
-            <option value="NIA-001">National Investigation Agency (NIA)</option>
-            <option value="ED-001">Enforcement Directorate (ED)</option>
-            <option value="NCB-001">Narcotics Control Bureau (NCB)</option>
-            <option value="RAW-001">Research & Analysis Wing (RAW)</option>
-            <option value="MHA-001">Ministry of Home Affairs (MHA)</option>
-            <option value="STATE-POLICE-001">State Police</option>
-            <option value="DOT-001">Department of Telecommunications (DoT)</option>
-          </select>
-        </div>
-
-        <div>
-          <label class="text-xs text-blue-300 mb-1 block">Legal Authorization Basis *</label>
-          <select id="f-legal-basis" class="input-field w-full rounded-lg px-3 py-2.5 text-sm">
-            <option value="Telegraph Act S5(2)">Section 5(2) — Indian Telegraph Act, 1885</option>
-            <option value="IT Act S69">Section 69 — Information Technology Act, 2000</option>
-            <option value="UAPA S39">Section 39 — Unlawful Activities Prevention Act (UAPA)</option>
-            <option value="NIA Act S6">Section 6 — National Investigation Agency Act, 2008</option>
-            <option value="NDPS Act S50">Section 50 — NDPS Act, 1985</option>
-          </select>
-          <div class="text-xs text-slate-500 mt-1">Authorised by: MHA (Home Secretary) or State Home Secretary</div>
-        </div>
-
-        <div class="border-t border-blue-900 pt-4">
-          <div class="text-xs text-blue-300 mb-2 font-medium">TARGET IDENTITY</div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="text-xs text-slate-400 mb-1 block">Identifier Type</label>
-              <select id="f-idtype" class="input-field w-full rounded-lg px-3 py-2 text-sm" onchange="updateTargetPlaceholder()">
-                <option value="MSISDN">MSISDN (Mobile Number)</option>
-                <option value="IMSI">IMSI (SIM Identifier)</option>
-                <option value="IMEI">IMEI (Device ID)</option>
-                <option value="IP_ADDRESS">IP Address</option>
+            <div class="form-group">
+              <label class="lbl">LEA Agency</label>
+              <select id="leaAgency" onchange="updateLeaId()">
+                <option value="IB">Intelligence Bureau (IB)</option>
+                <option value="CBI">Central Bureau of Investigation (CBI)</option>
+                <option value="NIA">National Investigation Agency (NIA)</option>
+                <option value="ED">Enforcement Directorate (ED)</option>
+                <option value="NCB">Narcotics Control Bureau (NCB)</option>
+                <option value="RAW">Research and Analysis Wing (RAW)</option>
+                <option value="MHA">Ministry of Home Affairs (MHA)</option>
+                <option value="STATEPOLICE">State Police</option>
+                <option value="DOT">Dept. of Telecommunications (DoT)</option>
               </select>
             </div>
-            <div>
-              <label class="text-xs text-slate-400 mb-1 block">Value *</label>
-              <input id="f-target" class="input-field w-full rounded-lg px-3 py-2.5 text-sm" placeholder="+919876543210"/>
+
+            <div class="form-group">
+              <label class="lbl">LEA-ID</label>
+              <input type="text" id="leaId" value="IB-001" placeholder="IB-001 / CBI-001">
             </div>
-          </div>
-          <div id="target-hint" class="text-xs text-slate-500">India mobile: +91 9XXXXXXXXX &nbsp;|&nbsp; IMSI: 404XXXXXXXXXX (Airtel) / 405XXXXXXXXXX (Jio)</div>
-        </div>
 
-        <div class="border-t border-blue-900 pt-4">
-          <div class="text-xs text-blue-300 mb-2 font-medium">INTERCEPT SCOPE</div>
-          <div class="grid grid-cols-3 gap-2">
-            <label class="cursor-pointer">
-              <input type="radio" name="itype" value="IRI_AND_CC" checked class="sr-only" onchange="setItype(this)"/>
-              <div id="rb-IRI_AND_CC" class="border-2 border-blue-500 bg-blue-950 rounded-lg p-2.5 text-center">
-                <div class="text-xs font-semibold text-blue-300">IRI + CC</div>
-                <div class="text-xs text-slate-400 mt-0.5">Full intercept</div>
-              </div>
-            </label>
-            <label class="cursor-pointer">
-              <input type="radio" name="itype" value="IRI_ONLY" class="sr-only" onchange="setItype(this)"/>
-              <div id="rb-IRI_ONLY" class="border border-slate-700 rounded-lg p-2.5 text-center hover:border-slate-500">
-                <div class="text-xs font-semibold text-slate-300">IRI Only</div>
-                <div class="text-xs text-slate-500 mt-0.5">Events only</div>
-              </div>
-            </label>
-            <label class="cursor-pointer">
-              <input type="radio" name="itype" value="CC_ONLY" class="sr-only" onchange="setItype(this)"/>
-              <div id="rb-CC_ONLY" class="border border-slate-700 rounded-lg p-2.5 text-center hover:border-slate-500">
-                <div class="text-xs font-semibold text-slate-300">CC Only</div>
-                <div class="text-xs text-slate-500 mt-0.5">Content only</div>
-              </div>
-            </label>
-          </div>
-          <input type="hidden" id="f-itype" value="IRI_AND_CC"/>
-        </div>
-
-        <div class="border-t border-blue-900 pt-4">
-          <div class="text-xs text-blue-300 mb-2 font-medium">VALIDITY PERIOD</div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="text-xs text-slate-400 mb-1 block">Valid From</label>
-              <input id="f-vfrom" type="datetime-local" class="input-field w-full rounded-lg px-3 py-2 text-sm"/>
+            <div class="form-group">
+              <label class="lbl">LI-ID (Intercept Reference)</label>
+              <input type="text" id="liId" value="LI-2024-IB-0001" placeholder="LI-2024-IB-0001">
             </div>
-            <div>
-              <label class="text-xs text-slate-400 mb-1 block">Valid Until</label>
-              <input id="f-vuntil" type="datetime-local" class="input-field w-full rounded-lg px-3 py-2 text-sm"/>
+
+            <div class="form-group">
+              <label class="lbl">Legal Authority / Authorization</label>
+              <select id="legalAuth">
+                <option value="Section 5(2) Indian Telegraph Act 1885">Section 5(2) Telegraph Act 1885</option>
+                <option value="Section 69 Information Technology Act 2000">Section 69 IT Act 2000</option>
+                <option value="Section 39 UAPA 1967">Section 39 UAPA 1967</option>
+                <option value="Section 6 NIA Act 2008">Section 6 NIA Act 2008</option>
+              </select>
             </div>
+
+            <div class="form-group">
+              <label class="lbl">Authorization Reference No.</label>
+              <input type="text" id="authRef" value="MHA/LI/2024/0001" placeholder="MHA/LI/2024/0001">
+            </div>
+
+            <div class="form-group">
+              <label class="lbl">Authorized By</label>
+              <select id="authBy">
+                <option value="Home Secretary, MHA">Home Secretary, MHA (Central)</option>
+                <option value="State Home Secretary">State Home Secretary</option>
+                <option value="Secretary, DoT">Secretary, DoT</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="lbl">Target MSISDN (+91 format)</label>
+              <input type="text" id="targetMSISDN" value="+919876543210" placeholder="+919876543210">
+            </div>
+
+            <div class="form-group">
+              <label class="lbl">Target IMSI (404/405 prefix)</label>
+              <input type="text" id="targetIMSI" value="404101234567890" placeholder="404101234567890">
+            </div>
+
+            <div class="form-group">
+              <label class="lbl">Target IMEI (optional)</label>
+              <input type="text" id="targetIMEI" value="" placeholder="353553110000004">
+            </div>
+
+            <div class="form-group">
+              <label class="lbl">Intercept Type</label>
+              <select id="interceptType">
+                <option value="IRI_AND_CC">IRI and CC (Full Intercept)</option>
+                <option value="IRI_ONLY">IRI Only (Metadata)</option>
+                <option value="CC_ONLY">CC Only (Content)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="lbl">Valid From</label>
+              <input type="datetime-local" id="validFrom">
+            </div>
+
+            <div class="form-group">
+              <label class="lbl">Valid Until</label>
+              <input type="datetime-local" id="validUntil">
+            </div>
+
+            <div class="form-group">
+              <label class="lbl">Delivery IP (HI2/HI3 Destination)</label>
+              <input type="text" id="deliveryIp" value="" placeholder="LEA machine IP">
+            </div>
+
+            <div class="form-group">
+              <label class="lbl">Delivery Port</label>
+              <input type="number" id="deliveryPort" value="8443">
+            </div>
+
+          </div>
+
+          <div style="margin-top:16px;display:flex;gap:8px;">
+            <button class="btn btn-primary" onclick="activateWarrant()">🔐 Activate Warrant</button>
+            <button class="btn" onclick="prefillExample()">📋 Fill Example</button>
           </div>
         </div>
-
-        <div class="border-t border-blue-900 pt-4">
-          <label class="text-xs text-blue-300 mb-1 block">HI2/HI3 Delivery Address</label>
-          <input id="f-delivery" class="input-field w-full rounded-lg px-3 py-2.5 text-sm" value="127.0.0.1:8443"/>
-          <div class="text-xs text-slate-500 mt-1">LEA receiver endpoint for IRI (HI2) and Content (HI3) — typically a LEMF (Law Enforcement Monitoring Facility)</div>
-        </div>
-
-        <!-- Protocol Toggle -->
-        <div class="border-t border-blue-900 pt-4">
-          <div class="text-xs text-blue-300 mb-2 font-medium">PROTOCOL (HI1 Transport)</div>
-          <div class="flex gap-2">
-            <button id="btn-rest" onclick="setProtocol('REST')"
-              class="flex-1 rounded-lg py-2 text-xs font-semibold border-2 border-blue-500 bg-blue-950 text-blue-200">
-              REST/JSON<br><span class="text-slate-400 font-normal text-xs">Dev/Debug</span>
-            </button>
-            <button id="btn-soap" onclick="setProtocol('SOAP')"
-              class="flex-1 rounded-lg py-2 text-xs font-semibold border border-slate-700 text-slate-300 hover:border-slate-500">
-              SOAP/XML<br><span class="text-slate-400 font-normal text-xs">ETSI TS 103 120 ✓</span>
-            </button>
-          </div>
-          <div id="proto-badge" class="mt-2 text-xs text-center text-slate-500">Using REST — sends JSON to /hi1/warrants/activate</div>
-        </div>
-
-        <button onclick="activateWarrant()" class="w-full bg-blue-600 hover:bg-blue-500 text-white rounded-lg py-3 text-sm font-bold transition">
-          ↓ Submit Warrant via HI1
-        </button>
-        <div id="activate-msg" class="text-xs rounded-lg p-3 hidden"></div>
-      </div>
-
-      <!-- Message Preview -->
-      <div class="card rounded-xl p-4 space-y-2" id="msg-preview-card">
-        <div class="flex items-center justify-between">
-          <div class="text-xs text-yellow-300 font-semibold">📨 Last HI1 Message Sent</div>
-          <button onclick="document.getElementById('msg-preview').textContent=''" class="text-xs text-slate-500 hover:text-slate-300">Clear</button>
-        </div>
-        <pre id="msg-preview" class="text-xs text-green-300 bg-black/40 rounded-lg p-3 overflow-auto max-h-52 whitespace-pre-wrap font-mono"></pre>
-      </div>
-
-      <!-- Deactivate -->
-      <div class="card rounded-xl p-4 space-y-3">
-        <div class="flex items-center gap-2">
-          <div class="w-1.5 h-5 bg-red-500 rounded"></div>
-          <div class="font-semibold text-white text-sm">Deactivate Warrant</div>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">LIID</label>
-            <input id="d-liid" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="LIID-2026-001"/>
-          </div>
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">LEA ID</label>
-            <input id="d-leaid" class="input-field w-full rounded-lg px-3 py-2 text-sm" value="LEA-UK-001"/>
-          </div>
-        </div>
-        <button onclick="deactivateWarrant()" class="w-full bg-red-700 hover:bg-red-600 text-white rounded-lg py-2.5 text-sm font-semibold transition">
-          Deactivate Intercept
-        </button>
-        <div id="deactivate-msg" class="text-xs"></div>
       </div>
     </div>
 
-    <!-- RIGHT: Active Warrants -->
-    <div class="col-span-3">
-      <div class="card rounded-xl p-5">
-        <div class="flex items-center justify-between mb-5">
-          <div>
-            <div class="font-semibold text-white">Active Intercepts</div>
-            <div class="text-xs text-slate-400 mt-0.5">All warrants submitted via HI1</div>
-          </div>
-          <button onclick="loadWarrants()" class="text-xs text-blue-400 hover:text-blue-300 border border-blue-800 rounded px-2 py-1">↻ Refresh</button>
-        </div>
-
-        <!-- Stats -->
-        <div class="grid grid-cols-3 gap-3 mb-5">
-          <div class="bg-blue-950/50 border border-blue-900 rounded-lg p-3 text-center">
-            <div class="text-2xl font-bold text-blue-300" id="stat-total">—</div>
-            <div class="text-xs text-slate-400">Total Active</div>
-          </div>
-          <div class="bg-green-950/30 border border-green-900 rounded-lg p-3 text-center">
-            <div class="text-2xl font-bold text-green-400" id="stat-iri">—</div>
-            <div class="text-xs text-slate-400">IRI Intercepts</div>
-          </div>
-          <div class="bg-purple-950/30 border border-purple-900 rounded-lg p-3 text-center">
-            <div class="text-2xl font-bold text-purple-400" id="stat-cc">—</div>
-            <div class="text-xs text-slate-400">CC Intercepts</div>
+    <!-- Right: Last HI1 Message -->
+    <div>
+      <div class="panel" style="margin-bottom:0">
+        <div class="panel-head">
+          <div class="panel-title">📨 Last HI1 Message Sent</div>
+          <div class="panel-actions">
+            <span id="hi1Result" class="badge badge-red" style="display:none"></span>
+            <button class="btn btn-sm" onclick="copyHi1Req()">📋 Copy</button>
           </div>
         </div>
-
-        <div class="overflow-auto">
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="text-xs text-blue-300 border-b border-blue-900">
-                <th class="text-left pb-3 pr-4">LIID</th>
-                <th class="text-left pb-3 pr-4">LEA</th>
-                <th class="text-left pb-3 pr-4">Target</th>
-                <th class="text-left pb-3 pr-4">ID Type</th>
-                <th class="text-left pb-3 pr-4">Scope</th>
-                <th class="text-left pb-3 pr-4">Valid Until</th>
-                <th class="text-left pb-3 pr-4">Status</th>
-                <th class="pb-3"></th>
-              </tr>
-            </thead>
-            <tbody id="warrant-table">
-              <tr><td colspan="8" class="text-slate-500 text-xs py-8 text-center">Loading warrants...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- HI1 Flow explanation -->
-      <div class="card rounded-xl p-4 mt-4">
-        <div class="text-xs text-blue-300 font-semibold mb-3">HI1 INTERFACE FLOW</div>
-        <div class="flex items-center gap-2 text-xs text-slate-400 flex-wrap">
-          <div class="bg-blue-900/40 border border-blue-800 rounded px-3 py-2 text-blue-200 font-semibold">IB / CBI / NIA<br><span class="font-normal text-slate-400">LEA / LEMF</span></div>
-          <div class="text-blue-500">── HI1 SOAP ──▶</div>
-          <div class="bg-slate-800 border border-slate-600 rounded px-3 py-2 text-slate-200 font-semibold">ADMF<br><span class="font-normal text-slate-400 text-xs">LIS Server</span></div>
-          <div class="text-orange-500">──── X1 ────▶</div>
-          <div class="bg-purple-900/40 border border-purple-800 rounded px-3 py-2 text-purple-200 font-semibold">Airtel/Jio/Vi/BSNL<br><span class="font-normal text-slate-400">MME / SGW / PGW</span></div>
-        </div>
-        <div class="text-xs text-slate-500 mt-3">
-          Governed by <span class="text-blue-300">Section 5(2) Indian Telegraph Act 1885</span> and <span class="text-blue-300">Section 69 IT Act 2000</span>.
-          Authorised by Home Secretary (Central/State). TRAI and DoT compliance required.
-          IRI events → HI2 → LEMF; Content → HI3 → LEMF.
+        <div class="panel-body" style="padding:12px">
+          <div class="soap-label">REQUEST →</div>
+          <div id="soapReqBox" class="soap-msg" style="height:180px;margin-bottom:10px">No request sent yet.</div>
+          <div class="soap-label">RESPONSE ←</div>
+          <div id="soapRespBox" class="soap-msg" style="height:160px">—</div>
         </div>
       </div>
     </div>
   </div>
+</div>
 
-  <script>
-    // ── Config (persisted in localStorage) ──────────────────
-    const CFG_KEY = 'lis_lea_config';
-    let cfg = JSON.parse(localStorage.getItem(CFG_KEY) || '{}');
-    function getBase() { return 'http://'+(cfg.lisIp||'localhost')+':'+(cfg.lisPort||'8001'); }
-    function getDelivery() { return (cfg.leaIp||'127.0.0.1')+':'+(cfg.leaPort||'8443'); }
+<!-- ══ HI2 IRI EVENTS ══ -->
+<div class="tab-panel" id="tab-hi2">
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title">📶 HI2 — IRI Event Log (ASN.1 BER decoded) <span class="count-badge" id="iriCount">0</span></div>
+      <div class="panel-actions">
+        <span class="pulse"></span><span style="font-size:11px;color:var(--muted)">Live poll every 5s</span>
+        <label style="font-size:11px;color:var(--muted)">Filter:</label>
+        <select id="iriFilter" onchange="renderIRI()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-size:11px;">
+          <option value="">All</option>
+          <option>ATTACH</option><option>DETACH</option><option>BEARER_ESTABLISH</option>
+          <option>BEARER_RELEASE</option><option>LOCATION_UPDATE</option>
+          <option>TAU</option><option>HANDOVER</option><option>SMS</option>
+        </select>
+        <button class="btn btn-sm" onclick="fetchIRI()">↻ Refresh</button>
+        <button class="btn btn-sm btn-danger" onclick="clearIRIDisplay()">✕ Clear Display</button>
+      </div>
+    </div>
 
-    function openSettings() {
-      document.getElementById('cfg-lis-ip').value   = cfg.lisIp   || '';
-      document.getElementById('cfg-lis-port').value = cfg.lisPort || '8001';
-      document.getElementById('cfg-lea-ip').value   = cfg.leaIp   || '';
-      document.getElementById('cfg-lea-port').value = cfg.leaPort || '8443';
-      document.getElementById('settings-modal').classList.remove('hidden');
-    }
-    function closeSettings() { document.getElementById('settings-modal').classList.add('hidden'); }
-    function saveSettings() {
-      cfg = {
-        lisIp:   document.getElementById('cfg-lis-ip').value.trim()   || 'localhost',
-        lisPort: document.getElementById('cfg-lis-port').value.trim() || '8001',
-        leaIp:   document.getElementById('cfg-lea-ip').value.trim()   || '127.0.0.1',
-        leaPort: document.getElementById('cfg-lea-port').value.trim() || '8443',
-      };
-      localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
-      document.getElementById('cfg-display').textContent = getBase();
-      document.getElementById('f-delivery').value = getDelivery();
-      closeSettings();
-      checkHealth();
-      loadWarrants();
-    }
+    <!-- IRI Delivery info banner -->
+    <div style="padding:8px 16px;background:rgba(88,166,255,.06);border-bottom:1px solid var(--border);font-size:11px;display:flex;gap:16px;flex-wrap:wrap;">
+      <span>📡 <strong>HI2 Protocol:</strong> ETSI TS 102 232-7 &nbsp;|&nbsp; ASN.1 BER over HTTPS</span>
+      <span>🔑 <strong>IRI Types:</strong> Attach, Detach, Bearer Establish/Release, TAU, HO, SMS, Location Update</span>
+      <span>📐 <strong>Encoding:</strong> 3GPP TS 33.108 Annex B — LI_PS ASN.1 records</span>
+    </div>
 
-    let selectedItype = 'IRI_AND_CC';
-    let selectedProto = 'REST';   // 'REST' or 'SOAP'
+    <div class="log-col-hdr" style="grid-template-columns:155px 105px 85px 130px 120px 1fr">
+      <span>Timestamp (IST)</span><span>Event Type</span><span>LI-ID</span><span>IMSI</span><span>Cell-ID / TAI</span><span>UE-IP / ASN.1 Details</span>
+    </div>
+    <div id="iriLog" style="max-height:400px;overflow-y:auto">
+      <div class="log-empty">No IRI events received yet. Warrant must be active and NE simulator must send X2 events.</div>
+    </div>
+  </div>
 
-    function setItype(radio) {
-      selectedItype = radio.value;
-      document.getElementById('f-itype').value = selectedItype;
-      ['IRI_AND_CC','IRI_ONLY','CC_ONLY'].forEach(t => {
-        const el = document.getElementById('rb-'+t);
-        el.className = t===selectedItype
-          ? 'border-2 border-blue-500 bg-blue-950 rounded-lg p-2.5 text-center'
-          : 'border border-slate-700 rounded-lg p-2.5 text-center hover:border-slate-500';
-      });
-    }
+  <!-- Raw ASN.1 Viewer -->
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title">🔬 Raw ASN.1 BER Packet Inspector</div>
+      <div class="panel-actions"><button class="btn btn-sm" onclick="clearAsn1View()">✕ Clear</button></div>
+    </div>
+    <div class="panel-body" style="padding:12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <div class="soap-label">ASN.1 BER HEX (click row above to inspect)</div>
+          <div id="asn1HexBox" class="soap-msg" style="height:150px">Click an IRI event row to inspect its ASN.1 BER encoding.</div>
+        </div>
+        <div>
+          <div class="soap-label">DECODED FIELDS</div>
+          <div id="asn1DecodedBox" class="soap-msg" style="height:150px;color:#98c379">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-    function setProtocol(proto) {
-      selectedProto = proto;
-      const restBtn = document.getElementById('btn-rest');
-      const soapBtn = document.getElementById('btn-soap');
-      const badge   = document.getElementById('proto-badge');
-      if (proto === 'SOAP') {
-        soapBtn.className = 'flex-1 rounded-lg py-2 text-xs font-semibold border-2 border-yellow-500 bg-yellow-950 text-yellow-200';
-        restBtn.className = 'flex-1 rounded-lg py-2 text-xs font-semibold border border-slate-700 text-slate-300 hover:border-slate-500';
-        badge.innerHTML   = '🟡 Using <b>SOAP/XML</b> — ETSI TS 103 120 real protocol → /hi1/soap';
-        badge.className   = 'mt-2 text-xs text-center text-yellow-400';
-      } else {
-        restBtn.className = 'flex-1 rounded-lg py-2 text-xs font-semibold border-2 border-blue-500 bg-blue-950 text-blue-200';
-        soapBtn.className = 'flex-1 rounded-lg py-2 text-xs font-semibold border border-slate-700 text-slate-300 hover:border-slate-500';
-        badge.innerHTML   = '🔵 Using <b>REST/JSON</b> — sends JSON to /hi1/warrants/activate';
-        badge.className   = 'mt-2 text-xs text-center text-blue-400';
-      }
-    }
+<!-- ══ HI3 CC CONTENT ══ -->
+<div class="tab-panel" id="tab-hi3">
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title">📦 HI3 — CC (Content of Communication) Log <span class="count-badge" id="ccCount">0</span></div>
+      <div class="panel-actions">
+        <span class="pulse"></span><span style="font-size:11px;color:var(--muted)">Live poll every 5s</span>
+        <button class="btn btn-sm" onclick="fetchCC()">↻ Refresh</button>
+        <button class="btn btn-sm btn-danger" onclick="clearCCDisplay()">✕ Clear Display</button>
+      </div>
+    </div>
 
-    // ── SOAP XML builders ────────────────────────────────────
-    const SOAP_ENV = 'http://schemas.xmlsoap.org/soap/envelope/';
-    const HI1_NS   = 'urn:etsi:103120:hi1:2019';
+    <!-- HI3 Protocol banner -->
+    <div style="padding:8px 16px;background:rgba(219,109,40,.06);border-bottom:1px solid var(--border);font-size:11px;display:flex;gap:16px;flex-wrap:wrap;">
+      <span>📁 <strong>HI3 Delivery:</strong> SFTP (port 2222) → cc_received/ directory</span>
+      <span>📦 <strong>Format:</strong> GTP-U encapsulated user-plane packets (PCAP/BIN)</span>
+      <span>🔒 <strong>Auth:</strong> SSH key or password</span>
+    </div>
 
-    function updateTargetPlaceholder() {
-      const type = document.getElementById('f-idtype').value;
-      const inp  = document.getElementById('f-target');
-      const hint = document.getElementById('target-hint');
-      if (type === 'MSISDN') {
-        inp.placeholder  = '+919876543210';
-        hint.textContent = 'Format: +91 followed by 10-digit mobile number (e.g. +919876543210)';
-      } else if (type === 'IMSI') {
-        inp.placeholder  = '404101234567890';
-        hint.textContent = 'India IMSI prefix: 404xx (Airtel), 405xx (Jio), 404xx (Vi/BSNL) — 15 digits';
-      } else if (type === 'IMEI') {
-        inp.placeholder  = '35XXXXXXXXXXXXX';
-        hint.textContent = '15-digit IMEI (TAC + Serial + Check digit)';
-      } else {
-        inp.placeholder  = '10.x.x.x';
-        hint.textContent = 'IPv4 or IPv6 address assigned to the target UE';
-      }
-    }
+    <!-- SFTP Connection Status -->
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <span style="font-size:12px;color:var(--muted)">SFTP Server Status:</span>
+        <span id="sftpStatus" class="badge badge-red">● Not configured</span>
+        <span id="sftpDetail" style="font-size:11px;color:var(--muted)">Configure SFTP host in the config bar above</span>
+        <button class="btn btn-sm" onclick="testSFTP()">🧪 Test SFTP Connection</button>
+      </div>
+    </div>
 
-    function buildActivateSoap(d) {
-      const iri = (d.intercept_type!=='CC_ONLY').toString();
-      const cc  = (d.intercept_type!=='IRI_ONLY').toString();
-      return `<?xml version="1.0" encoding="UTF-8"?>
+    <div class="log-col-hdr" style="grid-template-columns:155px 90px 85px 85px 80px 1fr">
+      <span>Timestamp (IST)</span><span>NE Source</span><span>LI-ID</span><span>Protocol</span><span>Size</span><span>SFTP File Path / Delivery Status</span>
+    </div>
+    <div id="ccLog" style="max-height:360px;overflow-y:auto">
+      <div class="log-empty">No CC packets received yet. Warrant must have CC enabled and X3 data must be sent by SGW/PGW simulator.</div>
+    </div>
+  </div>
+
+  <!-- CC File Listing -->
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title">📂 Received CC Files (SFTP: cc_received/)</div>
+      <div class="panel-actions">
+        <button class="btn btn-sm" onclick="fetchCCFiles()">↻ Refresh</button>
+      </div>
+    </div>
+    <div id="ccFileList" style="padding:16px">
+      <div class="log-empty">No CC files received yet. SFTP delivery will place files in cc_received/ on the LEA machine.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ HI1 DEACTIVATE ══ -->
+<div class="tab-panel" id="tab-hi1deact">
+  <div style="display:grid;grid-template-columns:1fr 400px;gap:16px;">
+    <div>
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">🚫 Deactivate Interception Warrant</div>
+        </div>
+        <div class="panel-body">
+          <div style="margin-bottom:16px;padding:10px;background:rgba(248,81,73,.08);border:1px solid rgba(248,81,73,.2);border-radius:6px;font-size:12px;color:var(--yellow);">
+            ⚠️ Deactivating a warrant will immediately stop all interception and remove X1 provisioning tasks from NEs.
+          </div>
+
+          <!-- Active Warrants Quick Select -->
+          <div style="margin-bottom:14px;">
+            <label class="lbl">Select Active Warrant to Deactivate</label>
+            <select id="deactLiIdSelect" onchange="fillDeactFromSelect()" style="margin-top:4px">
+              <option value="">— Select warrant —</option>
+            </select>
+            <button class="btn btn-sm" onclick="loadWarrantsForDeact()" style="margin-top:6px">🔄 Load Active Warrants</button>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="lbl">LI-ID to Deactivate</label>
+              <input type="text" id="deactLiId" value="" placeholder="LI-2024-IB-0001">
+            </div>
+            <div class="form-group">
+              <label class="lbl">LEA-ID (requesting)</label>
+              <input type="text" id="deactLeaId" value="IB-001">
+            </div>
+            <div class="form-group full">
+              <label class="lbl">Reason for Deactivation</label>
+              <input type="text" id="deactReason" value="Investigation concluded per order" placeholder="Reason">
+            </div>
+          </div>
+          <div style="margin-top:16px;display:flex;gap:8px;">
+            <button class="btn btn-danger" onclick="deactivateWarrant()">🚫 Deactivate Warrant</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">📨 Last Deactivation Message</div></div>
+        <div class="panel-body" style="padding:12px">
+          <div class="soap-label">REQUEST →</div>
+          <div id="deactReqBox" class="soap-msg" style="height:160px;margin-bottom:10px">No request sent yet.</div>
+          <div class="soap-label">RESPONSE ←</div>
+          <div id="deactRespBox" class="soap-msg" style="height:120px">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ══ Config ══ */
+let LIS_BASE   = 'http://76.13.211.64:8001';
+let LEA_PORT   = '8443';
+let SFTP_HOST  = '';
+let SFTP_PORT  = '2222';
+let SFTP_USER  = 'lea';
+let SFTP_PASS  = '';
+
+let iriData = [], ccData = [];
+let iriPollTimer = null, ccPollTimer = null;
+
+/* clock */
+function updateClock(){
+  document.getElementById('sysTime').textContent='IST '+
+    new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',hour12:false,
+      day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'
+    }).format(new Date());
+}
+setInterval(updateClock,1000); updateClock();
+
+/* Set default dates */
+(function(){
+  const now=new Date(); const end=new Date(now); end.setDate(end.getDate()+30);
+  document.getElementById('validFrom').value=now.toISOString().slice(0,16);
+  document.getElementById('validUntil').value=end.toISOString().slice(0,16);
+})();
+
+function saveConfig(){
+  LIS_BASE  = `http://${document.getElementById('cfgLisIp').value.trim()}:${document.getElementById('cfgLisPort').value.trim()}`;
+  LEA_PORT  = document.getElementById('cfgLeaPort').value.trim();
+  SFTP_HOST = document.getElementById('cfgSftpHost').value.trim();
+  SFTP_PORT = document.getElementById('cfgSftpPort').value.trim();
+  SFTP_USER = document.getElementById('cfgSftpUser').value.trim();
+  SFTP_PASS = document.getElementById('cfgSftpPass').value.trim();
+  document.getElementById('deliveryIp').value = document.getElementById('cfgLeaIp').value.trim();
+  checkServer();
+}
+
+/* Tabs */
+function showTab(id){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if(id==='hi2') startIRIPoll();
+  else stopIRIPoll();
+  if(id==='hi3') startCCPoll();
+  else stopCCPoll();
+  if(id==='hi1deact') loadWarrantsForDeact();
+}
+
+/* Server health check */
+async function checkServer(){
+  try{
+    const r=await fetch(LIS_BASE+'/health',{signal:AbortSignal.timeout(4000)});
+    document.getElementById('srvStatus').className=r.ok?'badge badge-green':'badge badge-red';
+    document.getElementById('srvStatus').textContent=r.ok?'● LIS Connected':'● LIS Error';
+  }catch{
+    document.getElementById('srvStatus').className='badge badge-red';
+    document.getElementById('srvStatus').textContent='● LIS Disconnected';
+  }
+}
+checkServer();
+
+/* LEA ID auto-update */
+function updateLeaId(){
+  const agency=document.getElementById('leaAgency').value;
+  document.getElementById('leaId').value=`${agency}-001`;
+}
+
+/* Protocol toggle */
+function updateProtoDisplay(){
+  const soap=document.getElementById('useSOAP').checked;
+  const b=document.getElementById('protoBadge');
+  b.textContent=soap?'SOAP/XML':'REST/JSON';
+  b.className='proto-badge '+(soap?'proto-etsi':'proto-rest');
+}
+
+function prefillExample(){
+  document.getElementById('liId').value='LI-2024-NIA-0042';
+  document.getElementById('leaAgency').value='NIA';
+  document.getElementById('leaId').value='NIA-001';
+  document.getElementById('legalAuth').value='Section 39 UAPA 1967';
+  document.getElementById('authRef').value='MHA/LI/2024/0042';
+  document.getElementById('targetMSISDN').value='+919876543210';
+  document.getElementById('targetIMSI').value='405854123456789';
+  document.getElementById('targetIMEI').value='353553110000042';
+  document.getElementById('interceptType').value='IRI_AND_CC';
+  document.getElementById('deliveryIp').value=document.getElementById('cfgLeaIp').value||'<LEA-IP>';
+}
+
+/* ══ SOAP builder ══ */
+function buildActivateSoap(d){
+  const ts=new Date().toISOString();
+  const imeiEl=d.imei?`
+        <hi1:IMEI>${d.imei}</hi1:IMEI>`:'';
+  return `<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope
-    xmlns:soapenv="${SOAP_ENV}"
-    xmlns:hi1="${HI1_NS}">
-  <soapenv:Header/>
-  <soapenv:Body>
-    <hi1:ActivateInterceptionRequest>
+  xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+  xmlns:hi1="urn:etsi:103120:hi1:2019">
+  <soapenv:Header>
+    <hi1:LIHeader>
+      <hi1:RequestTimestamp>${ts}</hi1:RequestTimestamp>
       <hi1:LIID>${d.liid}</hi1:LIID>
-      <hi1:LEAID>${d.lea_id}</hi1:LEAID>
+      <hi1:LEAID>${d.leaid}</hi1:LEAID>
       <hi1:AuthorizationCountryCode>IN</hi1:AuthorizationCountryCode>
-      <hi1:LegalAuthority>Home Secretary / MHA — Government of India</hi1:LegalAuthority>
-      <hi1:AuthorizationReference>${d.legal_basis}</hi1:AuthorizationReference>
-      <hi1:ServiceType>4G-LTE</hi1:ServiceType>
+    </hi1:LIHeader>
+  </soapenv:Header>
+  <soapenv:Body>
+    <hi1:ActivateRequest>
+      <hi1:LIID>${d.liid}</hi1:LIID>
+      <hi1:LEAID>${d.leaid}</hi1:LEAID>
+      <hi1:AuthorizationCountryCode>IN</hi1:AuthorizationCountryCode>
+      <hi1:LegalAuthority>${d.legalAuth}</hi1:LegalAuthority>
+      <hi1:AuthorizationReference>${d.authRef}</hi1:AuthorizationReference>
+      <hi1:AuthorizedBy>${d.authBy}</hi1:AuthorizedBy>
+      <hi1:CountryDialCode>+91</hi1:CountryDialCode>
       <hi1:TargetIdentifiers>
-        <hi1:TargetIdentifier>
-          <hi1:${d.id_type}>${d.target_value}</hi1:${d.id_type}>
-        </hi1:TargetIdentifier>
+        <hi1:MSISDN>${d.msisdn}</hi1:MSISDN>
+        <hi1:IMSI>${d.imsi}</hi1:IMSI>${imeiEl}
       </hi1:TargetIdentifiers>
       <hi1:InterceptionType>
-        <hi1:IRI>${iri}</hi1:IRI>
-        <hi1:CC>${cc}</hi1:CC>
+        <hi1:IRICapture>${d.itype!=='CC_ONLY'?'true':'false'}</hi1:IRICapture>
+        <hi1:CCCapture>${d.itype!=='IRI_ONLY'?'true':'false'}</hi1:CCCapture>
       </hi1:InterceptionType>
-      <hi1:ValidFrom>${d.valid_from}Z</hi1:ValidFrom>
-      <hi1:ValidUntil>${d.valid_until}Z</hi1:ValidUntil>
+      <hi1:ValidityPeriod>
+        <hi1:ValidFrom>${new Date(d.validFrom).toISOString()}</hi1:ValidFrom>
+        <hi1:ValidUntil>${new Date(d.validUntil).toISOString()}</hi1:ValidUntil>
+      </hi1:ValidityPeriod>
       <hi1:DeliveryAddress>
-        <hi1:IPAddress>${d.del_ip}</hi1:IPAddress>
-        <hi1:Port>${d.del_port}</hi1:Port>
+        <hi1:IPAddress>${d.deliveryIp}</hi1:IPAddress>
+        <hi1:Port>${d.deliveryPort}</hi1:Port>
         <hi1:Protocol>HTTPS</hi1:Protocol>
       </hi1:DeliveryAddress>
-      <hi1:NetworkType>4G-LTE</hi1:NetworkType>
-      <hi1:CountryDialCode>+91</hi1:CountryDialCode>
-    </hi1:ActivateInterceptionRequest>
+    </hi1:ActivateRequest>
   </soapenv:Body>
 </soapenv:Envelope>`;
-    }
+}
 
-    function buildDeactivateSoap(liid, leaId) {
-      return `<?xml version="1.0" encoding="UTF-8"?>
+function buildDeactivateSoap(liid, leaid, reason){
+  return `<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope
-    xmlns:soapenv="${SOAP_ENV}"
-    xmlns:hi1="${HI1_NS}">
-  <soapenv:Header/>
-  <soapenv:Body>
-    <hi1:DeactivateInterceptionRequest>
+  xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+  xmlns:hi1="urn:etsi:103120:hi1:2019">
+  <soapenv:Header>
+    <hi1:LIHeader>
+      <hi1:RequestTimestamp>${new Date().toISOString()}</hi1:RequestTimestamp>
       <hi1:LIID>${liid}</hi1:LIID>
-      <hi1:LEAID>${leaId}</hi1:LEAID>
+      <hi1:LEAID>${leaid}</hi1:LEAID>
       <hi1:AuthorizationCountryCode>IN</hi1:AuthorizationCountryCode>
-    </hi1:DeactivateInterceptionRequest>
+    </hi1:LIHeader>
+  </soapenv:Header>
+  <soapenv:Body>
+    <hi1:DeactivateRequest>
+      <hi1:LIID>${liid}</hi1:LIID>
+      <hi1:LEAID>${leaid}</hi1:LEAID>
+      <hi1:AuthorizationCountryCode>IN</hi1:AuthorizationCountryCode>
+      <hi1:Reason>${reason}</hi1:Reason>
+    </hi1:DeactivateRequest>
   </soapenv:Body>
 </soapenv:Envelope>`;
+}
+
+/* ══ Activate ══ */
+async function activateWarrant(){
+  const d = {
+    liid:        document.getElementById('liId').value.trim(),
+    leaid:       document.getElementById('leaId').value.trim(),
+    legalAuth:   document.getElementById('legalAuth').value,
+    authRef:     document.getElementById('authRef').value.trim(),
+    authBy:      document.getElementById('authBy').value,
+    msisdn:      document.getElementById('targetMSISDN').value.trim(),
+    imsi:        document.getElementById('targetIMSI').value.trim(),
+    imei:        document.getElementById('targetIMEI').value.trim(),
+    itype:       document.getElementById('interceptType').value,
+    validFrom:   document.getElementById('validFrom').value,
+    validUntil:  document.getElementById('validUntil').value,
+    deliveryIp:  document.getElementById('deliveryIp').value.trim(),
+    deliveryPort:document.getElementById('deliveryPort').value.trim(),
+  };
+
+  const useSOAP = document.getElementById('useSOAP').checked;
+  let reqText='', respText='', ok=false;
+
+  if(useSOAP){
+    const xml = buildActivateSoap(d);
+    reqText = xml;
+    document.getElementById('soapReqBox').textContent = xml;
+    try{
+      const resp = await fetch(LIS_BASE+'/hi1/soap', {
+        method:'POST',
+        headers:{'Content-Type':'text/xml;charset=UTF-8','SOAPAction':'urn:etsi:103120:hi1:2019#Activate'},
+        body:xml
+      });
+      respText = await resp.text();
+      ok = resp.ok || respText.includes('ActivateResponse');
+    }catch(e){ respText='ERROR: '+e.message; }
+  } else {
+    const body = {
+      liid:d.liid, lea_id:d.leaid, legal_authority:d.legalAuth,
+      auth_ref:d.authRef, target_msisdn:d.msisdn, target_imsi:d.imsi,
+      target_imei:d.imei, intercept_type:d.itype,
+      valid_from:d.validFrom, valid_until:d.validUntil,
+      delivery_ip:d.deliveryIp, delivery_port:parseInt(d.deliveryPort),
+      country_code:'IN'
+    };
+    reqText = JSON.stringify(body,null,2);
+    document.getElementById('soapReqBox').textContent = 'POST '+LIS_BASE+'/hi1/warrants/activate\n\n'+reqText;
+    try{
+      const resp = await fetch(LIS_BASE+'/hi1/warrants/activate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      respText = await resp.text();
+      ok = resp.ok;
+    }catch(e){ respText='ERROR: '+e.message; }
+  }
+
+  document.getElementById('soapRespBox').textContent = respText;
+  const res = document.getElementById('hi1Result');
+  res.style.display='inline';
+  if(ok){ res.className='badge badge-green'; res.textContent='✓ Warrant Activated'; }
+  else   { res.className='badge badge-red';   res.textContent='✗ Failed'; }
+  checkServer();
+}
+
+function copyHi1Req(){
+  navigator.clipboard.writeText(document.getElementById('soapReqBox').textContent).catch(()=>{});
+}
+
+/* ══ Deactivate ══ */
+async function loadWarrantsForDeact(){
+  try{
+    const data=await (await fetch(LIS_BASE+'/hi1/warrants')).json();
+    const list=Array.isArray(data)?data:(data.warrants||[]);
+    const sel=document.getElementById('deactLiIdSelect');
+    sel.innerHTML='<option value="">— Select warrant —</option>'+
+      list.map(w=>`<option value="${esc(w.liid||w.li_id)}">${esc(w.liid||w.li_id)} — ${esc(w.target_msisdn||'')}</option>`).join('');
+  }catch(e){alert('Cannot load warrants: '+e.message);}
+}
+function fillDeactFromSelect(){
+  const v=document.getElementById('deactLiIdSelect').value;
+  if(v) document.getElementById('deactLiId').value=v;
+}
+async function deactivateWarrant(){
+  const liid=document.getElementById('deactLiId').value.trim();
+  const leaid=document.getElementById('deactLeaId').value.trim();
+  const reason=document.getElementById('deactReason').value.trim();
+  if(!liid){alert('Enter LI-ID');return;}
+  const xml=buildDeactivateSoap(liid,leaid,reason);
+  document.getElementById('deactReqBox').textContent=xml;
+  try{
+    const resp=await fetch(LIS_BASE+'/hi1/warrants/deactivate',{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({liid,lea_id:leaid})});
+    document.getElementById('deactRespBox').textContent=resp.ok?'✓ Deactivated successfully\n\n'+await resp.text():await resp.text();
+  }catch(e){document.getElementById('deactRespBox').textContent='ERROR: '+e.message;}
+}
+
+/* ══ HI2 IRI EVENTS ══ */
+function startIRIPoll(){ if(!iriPollTimer){ fetchIRI(); iriPollTimer=setInterval(fetchIRI,5000);} }
+function stopIRIPoll(){ if(iriPollTimer){clearInterval(iriPollTimer);iriPollTimer=null;} }
+
+async function fetchIRI(){
+  try{
+    const data=await (await fetch(LIS_BASE+'/x2/iri/log/db',{signal:AbortSignal.timeout(4000)})).json();
+    iriData=(Array.isArray(data)?data:(data.events||[])).reverse();
+    renderIRI();
+    const cnt=iriData.length;
+    document.getElementById('iriCount').textContent=cnt;
+    document.getElementById('hi2TabCount').textContent=cnt;
+  }catch(e){console.warn('IRI poll:',e);}
+}
+
+function renderIRI(){
+  const f=document.getElementById('iriFilter').value;
+  const list=f?iriData.filter(e=>e.event_type===f):iriData;
+  const el=document.getElementById('iriLog');
+  if(!list.length){el.innerHTML='<div class="log-empty">No IRI events received</div>';return;}
+  el.innerHTML=list.slice(0,300).map((e,i)=>{
+    const p=safeJson(e.payload);
+    const asn=e.asn1_hex?`<span class="pill pill-purple" style="font-size:10px">ASN.1</span>`:'<span class="pill pill-gray" style="font-size:10px">JSON</span>';
+    return `<div class="log-entry" style="grid-template-columns:155px 105px 85px 130px 120px 1fr;cursor:pointer"
+        onclick="inspectAsn1('${esc(e.asn1_hex||'')}','${esc(JSON.stringify(e))}')">
+      <span class="mono" style="color:var(--muted);font-size:11px">${fmtTs(e.ts)}</span>
+      <span class="pill ${eCol(e.event_type)}" style="font-size:10px">${esc(e.event_type)}</span>
+      <span class="mono" style="color:var(--accent)">${esc(e.liid)}</span>
+      <span class="mono">${esc(p.imsi||e.imsi||'—')}</span>
+      <span class="mono" style="font-size:10px">${esc(p.cell_id||'—')}</span>
+      <span style="color:var(--muted);font-size:11px">
+        MSISDN:${esc(p.msisdn||'—')} UE-IP:${esc(p.ue_ip||'—')} APN:${esc(p.apn||'—')} ${asn}
+      </span>
+    </div>`;
+  }).join('');
+}
+
+function inspectAsn1(hex, rawJson){
+  if(hex){
+    document.getElementById('asn1HexBox').textContent=hex?formatHex(hex):'(no ASN.1 hex)';
+    try{
+      const e=JSON.parse(decodeURIComponent(rawJson.replace(/%27/g,"'")));
+      const p=safeJson(e.payload);
+      document.getElementById('asn1DecodedBox').textContent=`IRIParameters ::= SEQUENCE {
+  iriVersion       [0] INTEGER: 1
+  timeStamp        [1] GeneralizedTime: ${e.ts||'—'}
+  liID             [2] UTF8String: "${e.liid||'—'}"
+  sequenceNumber   [3] INTEGER: ${e.seq_no||0}
+  iriType          [4] ENUMERATED: ${e.event_type||'—'}
+  targetIMSI       [5] OCTET STRING: ${p.imsi||'—'}
+  targetMSISDN     [6] OCTET STRING: ${p.msisdn||'—'}
+  cellID           [7] OCTET STRING: ${p.cell_id||'—'}
+  tai              [8] OCTET STRING: ${p.tai||'—'}
+  ueIPAddress      [9] OCTET STRING: ${p.ue_ip||'—'}
+  apn              [10] UTF8String: ${p.apn||'—'}
+}`;
+    }catch{document.getElementById('asn1DecodedBox').textContent='(decode error)';}
+  } else {
+    document.getElementById('asn1HexBox').textContent='(No ASN.1 — event was JSON-encoded)';
+    document.getElementById('asn1DecodedBox').textContent='ASN.1 BER not available for this event.\nNE Simulator sends ASN.1 when "Use ASN.1 BER" is enabled.';
+  }
+  showTab('hi2'); /* stay on hi2 tab */
+}
+
+function formatHex(hex){
+  const clean=hex.replace(/[^0-9a-fA-F]/g,'');
+  const pairs=[]; for(let i=0;i<clean.length;i+=2) pairs.push(clean.slice(i,i+2));
+  const rows=[]; for(let i=0;i<pairs.length;i+=16) rows.push(pairs.slice(i,i+16).join(' '));
+  return rows.join('\n');
+}
+
+function clearAsn1View(){
+  document.getElementById('asn1HexBox').textContent='Click an IRI event row to inspect.';
+  document.getElementById('asn1DecodedBox').textContent='—';
+}
+function clearIRIDisplay(){ iriData=[]; renderIRI(); }
+
+/* ══ HI3 CC ══ */
+function startCCPoll(){ if(!ccPollTimer){ fetchCC(); ccPollTimer=setInterval(fetchCC,5000);} }
+function stopCCPoll(){ if(ccPollTimer){clearInterval(ccPollTimer);ccPollTimer=null;} }
+
+async function fetchCC(){
+  try{
+    const data=await (await fetch(LIS_BASE+'/x3/cc/log/db',{signal:AbortSignal.timeout(4000)})).json();
+    ccData=(Array.isArray(data)?data:(data.packets||[])).reverse();
+    renderCC();
+    const cnt=ccData.length;
+    document.getElementById('ccCount').textContent=cnt;
+    document.getElementById('hi3TabCount').textContent=cnt;
+  }catch(e){console.warn('CC poll:',e);}
+}
+
+function renderCC(){
+  const el=document.getElementById('ccLog');
+  if(!ccData.length){
+    el.innerHTML='<div class="log-empty">No CC packets received</div>';return;
+  }
+  el.innerHTML=ccData.slice(0,200).map(p=>{
+    const pay=safeJson(p.payload);
+    const delivered=p.sftp_delivered;
+    const sftp=delivered
+      ?`<span class="pill pill-green" style="font-size:10px">✓ SFTP</span> <span class="mono" style="font-size:10px">${esc(pay.sftp_path||'cc_received/')}</span>`
+      :`<span class="pill pill-yellow" style="font-size:10px">⏳ Pending SFTP</span>`;
+    return `<div class="log-entry" style="grid-template-columns:155px 90px 85px 85px 80px 1fr">
+      <span class="mono" style="color:var(--muted);font-size:11px">${fmtTs(p.ts)}</span>
+      <span class="pill ${neCol(p.ne_source)}" style="font-size:10px">${esc(p.ne_source||'SGW')}</span>
+      <span class="mono" style="color:var(--accent)">${esc(p.liid)}</span>
+      <span class="pill pill-gray" style="font-size:10px">${esc(pay.protocol||'GTP-U')}</span>
+      <span style="color:var(--muted);font-size:11px">${esc(pay.size_bytes||pay.size||'—')}B</span>
+      <span style="font-size:11px">${sftp}</span>
+    </div>`;
+  }).join('');
+}
+
+async function testSFTP(){
+  const host=document.getElementById('cfgSftpHost').value.trim();
+  if(!host){alert('Set SFTP host in config bar first');return;}
+  const st=document.getElementById('sftpStatus');
+  const dt=document.getElementById('sftpDetail');
+  st.textContent='● Testing…'; st.className='badge';
+  try{
+    const r=await fetch(LIS_BASE+'/hi3/sftp/test',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({host,port:parseInt(SFTP_PORT),username:SFTP_USER,password:SFTP_PASS}),
+      signal:AbortSignal.timeout(10000)});
+    const d=await r.json();
+    if(d.ok||d.status==='ok'){
+      st.textContent='● SFTP Connected'; st.className='badge badge-green';
+      dt.textContent=`Connected to ${host}:${SFTP_PORT} as ${SFTP_USER}`;
+    } else {
+      st.textContent='● SFTP Failed'; st.className='badge badge-red';
+      dt.textContent=d.error||'Connection failed';
     }
+  }catch(e){ st.textContent='● SFTP Error'; st.className='badge badge-red'; dt.textContent=e.message; }
+}
 
-    function showPreview(text) {
-      document.getElementById('msg-preview').textContent = text;
-    }
+async function fetchCCFiles(){
+  const el=document.getElementById('ccFileList');
+  el.innerHTML='<div class="log-empty">Loading file list…</div>';
+  try{
+    const r=await fetch(LIS_BASE+'/hi3/files',{signal:AbortSignal.timeout(5000)});
+    const data=await r.json();
+    const files=data.files||[];
+    if(!files.length){el.innerHTML='<div class="log-empty">No CC files received yet</div>';return;}
+    el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px">
+      <tr style="border-bottom:1px solid var(--border)">
+        <th style="padding:6px;text-align:left;color:var(--muted)">Filename</th>
+        <th style="padding:6px;text-align:left;color:var(--muted)">LI-ID</th>
+        <th style="padding:6px;text-align:left;color:var(--muted)">Size</th>
+        <th style="padding:6px;text-align:left;color:var(--muted)">Received</th>
+      </tr>`+
+      files.map(f=>`<tr style="border-bottom:1px solid rgba(48,54,61,.4)">
+        <td style="padding:6px"><span class="mono" style="color:var(--accent)">${esc(f.name)}</span></td>
+        <td style="padding:6px"><span class="mono">${esc(f.liid||'—')}</span></td>
+        <td style="padding:6px;color:var(--muted)">${esc(f.size||'—')}</td>
+        <td style="padding:6px;color:var(--muted);font-size:11px">${fmtTs(f.ts||f.mtime)}</td>
+      </tr>`).join('')+
+    '</table>';
+  }catch(e){el.innerHTML='<div class="log-empty" style="color:var(--red)">Cannot fetch file list: '+esc(e.message)+'</div>';}
+}
 
-    async function checkHealth() {
-      const dot = document.getElementById('status-dot');
-      const txt = document.getElementById('status-text');
-      try {
-        const r = await fetch(getBase()+'/health', {signal:AbortSignal.timeout(2000)});
-        if (r.ok) { dot.className='w-2.5 h-2.5 rounded-full bg-green-400'; txt.textContent='LIS '+getBase()+' Online'; txt.className='text-green-400'; }
-      } catch { dot.className='w-2.5 h-2.5 rounded-full bg-red-500'; txt.textContent='Cannot reach '+getBase(); txt.className='text-red-400'; }
-    }
+function clearCCDisplay(){ ccData=[]; renderCC(); }
 
-    async function activateWarrant() {
-      const msg      = document.getElementById('activate-msg');
-      const liid       = document.getElementById('f-liid').value.trim();
-      const leaId      = document.getElementById('f-leaid').value.trim();
-      const legalBasis = document.getElementById('f-legal-basis').value.trim();
-      const idType     = document.getElementById('f-idtype').value.split(' ')[0];
-      const idVal      = document.getElementById('f-target').value.trim();
-      const itype      = document.getElementById('f-itype').value;
-      const vfrom      = document.getElementById('f-vfrom').value;
-      const vuntil     = document.getElementById('f-vuntil').value;
-      const delivery   = document.getElementById('f-delivery').value.trim();
-      if (!liid || !idVal) { showMsg(msg,'LIID and Target Value are required.',false); return; }
-
-      if (selectedProto === 'SOAP') {
-        // ── Send real SOAP/XML ──────────────────────────────
-        const [del_ip, del_port] = delivery.includes(':')
-          ? [delivery.split(':')[0], delivery.split(':')[1]]
-          : [delivery, '8443'];
-        const xml = buildActivateSoap({liid, lea_id:leaId, id_type:idType, target_value:idVal,
-                                       intercept_type:itype, valid_from:vfrom, valid_until:vuntil,
-                                       del_ip, del_port, legal_basis:legalBasis});
-        showPreview('── REQUEST ──\n'+xml);
-        try {
-          const r = await fetch(getBase()+'/hi1/soap', {
-            method:'POST',
-            headers:{'Content-Type':'text/xml; charset=utf-8', 'SOAPAction':'ActivateInterceptionRequest'},
-            body: xml
-          });
-          const respText = await r.text();
-          showPreview('── REQUEST ──\n'+xml+'\n\n── RESPONSE ──\n'+respText);
-          const ok = respText.includes('SUCCESS');
-          showMsg(msg, ok ? `✓ SOAP Activate sent — LIID=${liid} activated` : `✗ SOAP Fault: `+respText.match(/<faultstring>(.*?)<\/faultstring>/)?.[1], ok);
-          if (ok) loadWarrants();
-        } catch(e) { showMsg(msg,'✗ LIS Server unreachable — check Config (⚙️)',false); }
-
-      } else {
-        // ── Send REST/JSON ──────────────────────────────────
-        const body = { liid, lea_id:leaId,
-          target:{id_type:idType, value:idVal},
-          intercept_type:itype, valid_from:vfrom, valid_until:vuntil,
-          delivery_address:delivery };
-        showPreview('── REQUEST ──\nPOST '+getBase()+'/hi1/warrants/activate\nContent-Type: application/json\n\n'+JSON.stringify(body,null,2));
-        try {
-          const r = await fetch(getBase()+'/hi1/warrants/activate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-          const d = await r.json();
-          showPreview('── REQUEST ──\nPOST '+getBase()+'/hi1/warrants/activate\nContent-Type: application/json\n\n'+JSON.stringify(body,null,2)+'\n\n── RESPONSE ──\n'+JSON.stringify(d,null,2));
-          showMsg(msg, r.ok?`✓ Warrant ${liid} activated. X1 tasks dispatched to NEs.`:`✗ ${d.detail||JSON.stringify(d)}`, r.ok);
-          if (r.ok) loadWarrants();
-        } catch { showMsg(msg,'✗ LIS Server unreachable — check Config (⚙️)',false); }
-      }
-    }
-
-    async function deactivateWarrant() {
-      const msg   = document.getElementById('deactivate-msg');
-      const liid  = document.getElementById('d-liid').value.trim();
-      const leaId = document.getElementById('d-leaid').value.trim();
-      if (!liid) { msg.textContent='Enter LIID'; msg.className='text-xs text-yellow-400'; return; }
-
-      if (selectedProto === 'SOAP') {
-        const xml = buildDeactivateSoap(liid, leaId);
-        showPreview('── DEACTIVATE REQUEST ──\n'+xml);
-        try {
-          const r = await fetch(getBase()+'/hi1/soap', {
-            method:'POST',
-            headers:{'Content-Type':'text/xml; charset=utf-8', 'SOAPAction':'DeactivateInterceptionRequest'},
-            body: xml
-          });
-          const respText = await r.text();
-          showPreview('── DEACTIVATE REQUEST ──\n'+xml+'\n\n── RESPONSE ──\n'+respText);
-          const ok = respText.includes('SUCCESS');
-          msg.textContent = ok ? `✓ SOAP Deactivated ${liid}` : '✗ '+respText.match(/<faultstring>(.*?)<\/faultstring>/)?.[1];
-          msg.className = 'text-xs '+(ok?'text-green-400':'text-red-400');
-          if (ok) loadWarrants();
-        } catch { msg.textContent='✗ Unreachable'; msg.className='text-xs text-red-400'; }
-      } else {
-        const body = { liid, lea_id:leaId };
-        try {
-          const r = await fetch(getBase()+'/hi1/warrants/deactivate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-          const d = await r.json();
-          msg.textContent = r.ok?`✓ Deactivated ${liid}`:`✗ ${d.detail}`;
-          msg.className = 'text-xs '+(r.ok?'text-green-400':'text-red-400');
-          if (r.ok) loadWarrants();
-        } catch { msg.textContent='✗ Unreachable'; msg.className='text-xs text-red-400'; }
-      }
-    }
-
-    async function loadWarrants() {
-      const tb = document.getElementById('warrant-table');
-      try {
-        const ws = await fetch(getBase()+'/hi1/warrants').then(r=>r.json());
-        document.getElementById('stat-total').textContent = ws.length;
-        document.getElementById('stat-iri').textContent   = ws.filter(w=>w.intercept_type!=='CC_ONLY').length;
-        document.getElementById('stat-cc').textContent    = ws.filter(w=>w.intercept_type!=='IRI_ONLY').length;
-        if (!ws.length) { tb.innerHTML='<tr><td colspan="8" class="text-slate-500 text-xs py-8 text-center">No active warrants. Submit one using the form.</td></tr>'; return; }
-        tb.innerHTML = ws.map(w=>`
-          <tr class="border-b border-blue-900/50 hover:bg-blue-950/30">
-            <td class="py-3 pr-4 font-mono text-xs text-blue-300">${w.liid}</td>
-            <td class="py-3 pr-4 text-xs">${w.lea_id}</td>
-            <td class="py-3 pr-4 font-mono text-xs text-white">${w.target_value}</td>
-            <td class="py-3 pr-4 text-xs text-slate-400">${w.intercept_type?.split('_')[0]||'—'}</td>
-            <td class="py-3 pr-4"><span class="text-xs px-2 py-0.5 rounded ${itypeCls(w.intercept_type)}">${w.intercept_type}</span></td>
-            <td class="py-3 pr-4 text-xs text-slate-400">${fmtDate(w.valid_until)}</td>
-            <td class="py-3 pr-4"><span class="text-xs px-2 py-0.5 rounded-full border ${w.active?'badge-active':'badge-inactive'}">${w.active?'Active':'Inactive'}</span></td>
-            <td class="py-3"><button onclick="prefillDeactivate('${w.liid}')" class="text-xs text-red-400 hover:text-red-300">Deactivate</button></td>
-          </tr>`).join('');
-      } catch { tb.innerHTML='<tr><td colspan="8" class="text-red-400 text-xs py-4 text-center">Cannot reach LIS server.</td></tr>'; }
-    }
-
-    function prefillDeactivate(liid) {
-      document.getElementById('d-liid').value=liid;
-      window.scrollTo(0,9999);
-    }
-
-    function itypeCls(t) { return t==='IRI_ONLY'?'badge-iri':t==='CC_ONLY'?'badge-cc':'badge-both'; }
-    function fmtDate(d) { return d?new Date(d).toLocaleString():'—'; }
-    function showMsg(el,text,ok) {
-      el.textContent=text; el.classList.remove('hidden');
-      el.className='text-xs rounded-lg p-3 '+(ok?'bg-green-900/40 text-green-300 border border-green-800':'bg-red-900/40 text-red-300 border border-red-800');
-    }
-
-    const now=new Date(), later=new Date(now.getTime()+86400000*180);
-    document.getElementById('f-vfrom').value  = now.toISOString().slice(0,16);
-    document.getElementById('f-vuntil').value = later.toISOString().slice(0,16);
-    // Apply saved config on load
-    document.getElementById('cfg-display').textContent = getBase();
-    document.getElementById('f-delivery').value = getDelivery();
-    checkHealth(); setInterval(checkHealth,6000); loadWarrants();
-  </script>
+/* ══ Helpers ══ */
+function safeJson(v){if(!v)return{};if(typeof v==='object')return v;try{return JSON.parse(v);}catch{return{};}}
+function fmtTs(ts){if(!ts)return'—';try{return new Date(ts).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',hour12:false});}catch{return ts;}}
+function esc(s){if(s==null)return'—';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function eCol(t){const m={ATTACH:'pill-green',DETACH:'pill-red',BEARER_ESTABLISH:'pill-blue',
+  BEARER_RELEASE:'pill-orange',LOCATION_UPDATE:'pill-yellow',TAU:'pill-yellow',HANDOVER:'pill-orange',SMS:'pill-gray'};return m[t]||'pill-gray';}
+function neCol(n){if(!n)return'pill-gray';if(n.toLowerCase().includes('mme'))return'pill-blue';
+  if(n.toLowerCase().includes('pgw'))return'pill-green';return'pill-yellow';}
+</script>
 </body>
 </html>

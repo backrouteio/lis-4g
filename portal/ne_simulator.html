@@ -1,571 +1,928 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>NE Simulator — MME / S-GW / P-GW (India 4G LTE)</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body { background: #0d0a1e; }
-    .card { background: #160f2e; border: 1px solid #2d1f5e; }
-    .card-mme { background: #0f1a0d; border: 1px solid #1a3d15; }
-    .card-sgw { background: #1a0f0d; border: 1px solid #3d1f15; }
-    .card-pgw { background: #0d1a1a; border: 1px solid #153d3d; }
-    .input-field { background: #0d0a1e; border: 1px solid #2d1f5e; color: #e2e8f0; }
-    .input-field:focus { outline: none; border-color: #7c3aed; }
-    .badge-act  { background:#14532d33; color:#4ade80; border:1px solid #166534; }
-    .badge-dact { background:#7f1d1d33; color:#f87171; border:1px solid #991b1b; }
-    .log-iri { border-left:3px solid #3b82f6; background:#0a0f1e; padding:8px 10px; border-radius:4px; }
-    .log-cc  { border-left:3px solid #a855f7; background:#0a0f1e; padding:8px 10px; border-radius:4px; }
-    .log-x1  { border-left:3px solid #f97316; background:#0a0f1e; padding:8px 10px; border-radius:4px; }
-    ::-webkit-scrollbar{width:5px} ::-webkit-scrollbar-track{background:#160f2e} ::-webkit-scrollbar-thumb{background:#2d1f5e;border-radius:3px}
-    .ne-tab-active   { background:#7c3aed; color:white; }
-    .ne-tab-inactive { background:#1e1040; color:#a78bfa; border:1px solid #2d1f5e; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NE Simulator — MME/SGW/PGW | India 4G LTE LIS</title>
+<style>
+  :root {
+    --bg:#0d1117; --surface:#161b22; --border:#30363d;
+    --text:#e6edf3; --muted:#8b949e; --accent:#58a6ff;
+    --green:#3fb950; --red:#f85149; --yellow:#d29922; --orange:#db6d28; --purple:#bc8cff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',monospace;font-size:13px;}
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 20px;
+    display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+  .logo-icon{width:32px;height:32px;background:linear-gradient(135deg,#db6d28,#f09429);border-radius:6px;
+    display:flex;align-items:center;justify-content:center;font-size:16px;}
+  .logo{display:flex;align-items:center;gap:10px;}
+  .logo-text h1{font-size:15px;font-weight:600;}
+  .logo-text p{font-size:11px;color:var(--muted);}
+  .header-right{display:flex;align-items:center;gap:12px;}
+  .badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+  .badge-green{background:rgba(63,185,80,.15);color:var(--green);border:1px solid rgba(63,185,80,.3);}
+  .badge-red{background:rgba(248,81,73,.15);color:var(--red);border:1px solid rgba(248,81,73,.3);}
+  .badge-orange{background:rgba(219,109,40,.15);color:var(--orange);border:1px solid rgba(219,109,40,.3);}
+  .sys-time{color:var(--muted);font-size:11px;font-family:monospace;}
+
+  /* Config */
+  .config-bar{background:#0e1929;border-bottom:1px solid var(--border);
+    padding:8px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .cfg-input{background:var(--surface);border:1px solid var(--border);color:var(--text);
+    padding:4px 8px;border-radius:4px;font-size:12px;width:130px;}
+  .cfg-input:focus{outline:none;border-color:var(--accent);}
+  .cfg-label{color:var(--muted);font-size:11px;white-space:nowrap;}
+
+  /* Tabs */
+  .tab-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;gap:0;}
+  .tab{padding:12px 20px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;
+    color:var(--muted);transition:all .2s;white-space:nowrap;}
+  .tab:hover{color:var(--text);}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .tab-panel{display:none;padding:20px;}
+  .tab-panel.active{display:block;}
+
+  /* Layout */
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+
+  /* Buttons */
+  .btn{padding:7px 16px;border-radius:6px;font-size:13px;cursor:pointer;border:1px solid var(--border);
+    background:var(--surface);color:var(--text);transition:all .2s;font-weight:500;}
+  .btn:hover{background:#1f2937;border-color:var(--accent);color:var(--accent);}
+  .btn-primary{background:#1f6feb;border-color:#1f6feb;color:#fff;}
+  .btn-primary:hover{background:#388bfd;}
+  .btn-green{background:rgba(63,185,80,.15);border-color:var(--green);color:var(--green);}
+  .btn-green:hover{background:rgba(63,185,80,.3);}
+  .btn-danger{background:rgba(248,81,73,.15);border-color:var(--red);color:var(--red);}
+  .btn-orange{background:rgba(219,109,40,.15);border-color:var(--orange);color:var(--orange);}
+  .btn-sm{padding:4px 12px;font-size:12px;}
+
+  /* Form */
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .form-group{display:flex;flex-direction:column;gap:4px;}
+  .form-group.full{grid-column:1/-1;}
+  .lbl{font-size:11px;color:var(--muted);font-weight:500;letter-spacing:.3px;}
+  input[type=text],input[type=number],select,textarea{
+    background:#0d1117;border:1px solid var(--border);color:var(--text);
+    padding:7px 10px;border-radius:5px;font-size:12px;width:100%;}
+  input:focus,select:focus{outline:none;border-color:var(--accent);}
+  select option{background:#161b22;}
+  .toggle-row{display:flex;align-items:center;gap:8px;padding:8px 0;}
+  .toggle-row label{font-size:12px;}
+  input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;}
+
+  /* Panels */
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px;}
+  .panel-head{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;
+    align-items:center;justify-content:space-between;background:rgba(255,255,255,.02);}
+  .panel-title{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;}
+  .panel-actions{display:flex;gap:8px;align-items:center;}
+  .panel-body{padding:16px;}
+
+  /* Pills */
+  .pill{padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;display:inline-block;}
+  .pill-green{background:rgba(63,185,80,.15);color:var(--green);}
+  .pill-red{background:rgba(248,81,73,.15);color:var(--red);}
+  .pill-blue{background:rgba(88,166,255,.15);color:var(--accent);}
+  .pill-yellow{background:rgba(210,153,34,.15);color:var(--yellow);}
+  .pill-orange{background:rgba(219,109,40,.15);color:var(--orange);}
+  .pill-gray{background:rgba(139,148,158,.15);color:var(--muted);}
+  .pill-purple{background:rgba(188,140,255,.15);color:var(--purple);}
+
+  .mono{font-family:monospace;font-size:11px;}
+  .count-badge{background:rgba(88,166,255,.15);color:var(--accent);border:1px solid rgba(88,166,255,.3);
+    padding:1px 8px;border-radius:20px;font-size:11px;}
+  .pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);
+    animation:pulse 2s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+  .spin{animation:spin 1s linear infinite;display:inline-block;}
+  @keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+
+  /* Log */
+  .log-box{background:#0a0e13;border:1px solid var(--border);border-radius:5px;padding:10px;
+    font-family:monospace;font-size:11px;overflow-y:auto;color:var(--text);white-space:pre-wrap;}
+  .log-entry{padding:6px 12px;border-bottom:1px solid rgba(48,54,61,.4);font-size:12px;}
+  .log-entry:hover{background:rgba(255,255,255,.02);}
+  .log-col-hdr{display:grid;gap:0;padding:6px 12px;border-bottom:1px solid var(--border);
+    font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+  .log-empty{padding:20px;text-align:center;color:var(--muted);font-style:italic;font-size:12px;}
+
+  /* X1 task cards */
+  .x1-task-card{background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:6px;
+    padding:12px;margin-bottom:8px;}
+  .x1-task-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .x1-task-liid{font-weight:600;color:var(--accent);font-family:monospace;font-size:13px;}
+  .x1-task-fields{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;}
+  .x1-field{display:flex;flex-direction:column;gap:2px;}
+  .x1-field-label{color:var(--muted);font-size:10px;text-transform:uppercase;}
+  .x1-field-val{font-family:monospace;}
+
+  /* ASN.1 hex display */
+  .asn1-box{background:#0a0e13;border:1px solid var(--border);border-radius:5px;padding:10px;
+    font-family:monospace;font-size:10.5px;max-height:160px;overflow:auto;color:#89d4f5;white-space:pre-wrap;}
+
+  /* Event buttons grid */
+  .evt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;}
+  .evt-btn{padding:8px;border-radius:6px;border:1px solid var(--border);background:rgba(0,0,0,.2);
+    cursor:pointer;text-align:center;font-size:12px;font-weight:500;transition:all .2s;color:var(--text);}
+  .evt-btn:hover{background:rgba(88,166,255,.15);border-color:var(--accent);color:var(--accent);}
+  .evt-btn .evt-icon{font-size:18px;margin-bottom:3px;}
+  .evt-btn .evt-name{font-size:11px;}
+
+  /* Info bar */
+  .info-bar{padding:8px 16px;font-size:11px;display:flex;gap:16px;flex-wrap:wrap;}
+  .info-bar.blue{background:rgba(88,166,255,.06);border-bottom:1px solid var(--border);}
+  .info-bar.orange{background:rgba(219,109,40,.06);border-bottom:1px solid var(--border);}
+</style>
 </head>
-<body class="text-slate-200 min-h-screen">
+<body>
 
-  <!-- Settings Modal -->
-  <div id="settings-modal" class="fixed inset-0 bg-black/70 z-50 hidden flex items-center justify-center">
-    <div class="bg-slate-900 border border-purple-800 rounded-xl p-6 w-[520px] space-y-4">
-      <div class="font-bold text-white text-base flex items-center justify-between">
-        ⚙️ Network Configuration
-        <button onclick="closeSettings()" class="text-slate-400 hover:text-white">✕</button>
-      </div>
-
-      <div class="space-y-3">
-        <div class="bg-slate-800 rounded-lg p-3">
-          <div class="text-xs text-blue-300 font-semibold mb-2">🖥 LIS SERVER</div>
-          <div class="grid grid-cols-3 gap-2">
-            <div class="col-span-2">
-              <label class="text-xs text-slate-400 block mb-1">LIS Server IP</label>
-              <input id="cfg-lis-ip" class="input-field w-full rounded px-2 py-1.5 text-sm" placeholder="76.13.211.64"/>
-            </div>
-            <div>
-              <label class="text-xs text-slate-400 block mb-1">Port (standalone)</label>
-              <input id="cfg-lis-port" class="input-field w-full rounded px-2 py-1.5 text-sm" placeholder="8001"/>
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-2 mt-2">
-            <div>
-              <label class="text-xs text-slate-400 block mb-1">IRI-MF Port (X2)</label>
-              <input id="cfg-irimf-port" class="input-field w-full rounded px-2 py-1.5 text-sm" placeholder="8002"/>
-            </div>
-            <div>
-              <label class="text-xs text-slate-400 block mb-1">CC-MF Port (X3)</label>
-              <input id="cfg-ccmf-port" class="input-field w-full rounded px-2 py-1.5 text-sm" placeholder="8003"/>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-slate-800 rounded-lg p-3">
-          <div class="text-xs text-purple-300 font-semibold mb-2">📡 THIS MACHINE (NE Simulator)</div>
-          <div class="grid grid-cols-3 gap-2">
-            <div class="col-span-2">
-              <label class="text-xs text-slate-400 block mb-1">This Machine IP</label>
-              <input id="cfg-ne-ip" class="input-field w-full rounded px-2 py-1.5 text-sm" placeholder="192.168.1.20"/>
-            </div>
-            <div></div>
-          </div>
-          <div class="grid grid-cols-3 gap-2 mt-2">
-            <div>
-              <label class="text-xs text-slate-400 block mb-1">MME X1 Port</label>
-              <input id="cfg-mme-port" class="input-field w-full rounded px-2 py-1.5 text-sm" placeholder="9001"/>
-            </div>
-            <div>
-              <label class="text-xs text-slate-400 block mb-1">SGW X1 Port</label>
-              <input id="cfg-sgw-port" class="input-field w-full rounded px-2 py-1.5 text-sm" placeholder="9002"/>
-            </div>
-            <div>
-              <label class="text-xs text-slate-400 block mb-1">PGW X1 Port</label>
-              <input id="cfg-pgw-port" class="input-field w-full rounded px-2 py-1.5 text-sm" placeholder="9003"/>
-            </div>
-          </div>
-          <div class="text-xs text-slate-500 mt-1">ADMF sends X1 tasks to these ports on this machine</div>
-        </div>
-      </div>
-
-      <div class="bg-purple-950/50 border border-purple-900 rounded-lg p-3 text-xs text-purple-300">
-        <div class="font-semibold mb-1">Firewall rules needed on this NE machine:</div>
-        <code class="text-green-300 block">ufw allow 9001/tcp  # MME X1</code>
-        <code class="text-green-300 block">ufw allow 9002/tcp  # SGW X1</code>
-        <code class="text-green-300 block">ufw allow 9003/tcp  # PGW X1</code>
-      </div>
-
-      <div class="flex gap-3">
-        <button onclick="saveSettings()" class="flex-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg py-2 text-sm font-semibold">Save & Apply</button>
-        <button onclick="closeSettings()" class="px-4 bg-slate-700 hover:bg-slate-600 text-white rounded-lg py-2 text-sm">Cancel</button>
-      </div>
+<!-- ══ HEADER ══ -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🗼</div>
+    <div class="logo-text">
+      <h1>NE Simulator — MME / SGW / PGW</h1>
+      <p>X1 Provisioning Receiver &nbsp;|&nbsp; X2 IRI Sender (ASN.1 BER) &nbsp;|&nbsp; X3 CC Sender (SFTP) &nbsp;|&nbsp; India 4G LTE LIS</p>
     </div>
   </div>
+  <div class="header-right">
+    <span id="srvStatus" class="badge badge-red">● LIS Disconnected</span>
+    <span id="x1Notify" class="badge badge-orange" style="display:none">📋 New X1 Task</span>
+    <span class="sys-time" id="sysTime"></span>
+  </div>
+</header>
 
-  <!-- Header -->
-  <div class="border-b border-purple-900 px-6 py-4 flex items-center justify-between" style="background:#110d22">
-    <div class="flex items-center gap-4">
-      <div class="w-10 h-10 rounded-lg bg-purple-700 flex items-center justify-center font-bold text-sm">NE</div>
-      <div>
-        <div class="font-bold text-white text-base">Network Element Simulator — India 4G LTE</div>
-        <div class="text-xs text-purple-300">Airtel / Jio / Vi / BSNL — MME · S-GW · P-GW — X1 Receiver · X2 IRI Sender · X3 CC Sender</div>
+<!-- ══ CONFIG BAR ══ -->
+<div class="config-bar">
+  <span class="cfg-label">LIS Server:</span>
+  <input class="cfg-input" id="cfgLisIp" value="76.13.211.64" placeholder="LIS IP">
+  <input class="cfg-input" id="cfgLisPort" value="8001" placeholder="Port" style="width:65px">
+  <span style="color:var(--border)">|</span>
+  <span class="cfg-label">Indian Operator:</span>
+  <select id="operatorSelect" onchange="setOperator()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:12px;">
+    <option value="AIRTEL">Airtel (404-10)</option>
+    <option value="JIO">Jio (405-854)</option>
+    <option value="VI">Vi / Vodafone-Idea (404-20)</option>
+    <option value="BSNL">BSNL (404-07)</option>
+  </select>
+  <span style="color:var(--border)">|</span>
+  <span class="cfg-label">X2 Encoding:</span>
+  <div style="display:flex;align-items:center;gap:6px;">
+    <input type="checkbox" id="useAsn1" checked style="accent-color:var(--accent)">
+    <label for="useAsn1" style="font-size:12px;cursor:pointer">ASN.1 BER (3GPP TS 33.108)</label>
+  </div>
+  <button class="btn btn-primary btn-sm" onclick="saveConfig()">Save Config</button>
+</div>
+
+<!-- ══ TABS ══ -->
+<div class="tab-bar">
+  <div class="tab active" onclick="showTab('x1')">📋 X1 Tasks (ADMF→NE) <span class="count-badge" id="x1TabCount">0</span></div>
+  <div class="tab" onclick="showTab('mme')">📡 MME — X2 IRI Sender</div>
+  <div class="tab" onclick="showTab('sgw')">🔀 SGW — X3 CC Sender</div>
+  <div class="tab" onclick="showTab('pgw')">🌐 PGW — X3 CC Sender</div>
+</div>
+
+<!-- ══ X1 TASKS ══ -->
+<div class="tab-panel active" id="tab-x1">
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title">📋 X1 Provisioning Tasks from ADMF <span class="count-badge" id="x1Count">0</span></div>
+      <div class="panel-actions">
+        <span class="pulse"></span><span style="font-size:11px;color:var(--muted)">Auto-poll every 5s</span>
+        <button class="btn btn-sm" onclick="fetchAllX1()">↻ Refresh</button>
       </div>
     </div>
-    <div class="flex items-center gap-3 text-xs">
-      <div id="server-status" class="flex items-center gap-1.5">
-        <div id="status-dot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></div>
-        <span id="status-text" class="text-slate-400">Connecting...</span>
-      </div>
-      <button onclick="openSettings()" class="text-slate-300 hover:text-white border border-slate-700 rounded px-2 py-1">⚙️ Config</button>
-      <span id="cfg-display" class="text-slate-500 font-mono text-xs"></span>
-      <a href="hi1_lea.html"  class="text-blue-400 hover:text-blue-300 border border-blue-900 rounded px-2 py-1">← LEA Portal</a>
-      <a href="index.html"    class="text-purple-400 hover:text-purple-300 border border-purple-800 rounded px-2 py-1">LIS Dashboard →</a>
+    <div class="info-bar blue">
+      <span>📡 <strong>X1 Protocol:</strong> ETSI TS 103 221-1 — NE provisioning interface</span>
+      <span>🔑 <strong>Routing:</strong> IRI_ONLY→MME &nbsp;|&nbsp; CC_ONLY→SGW+PGW &nbsp;|&nbsp; IRI_AND_CC→All</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;padding:16px;" id="x1Grid">
+      <div style="color:var(--muted);font-style:italic">Loading X1 tasks…</div>
     </div>
   </div>
+</div>
 
-  <!-- NE selector tabs -->
-  <div class="px-6 py-3 flex gap-3 border-b border-purple-900" style="background:#110d22">
-    <button onclick="selectNE('MME')" id="ne-tab-MME" class="rounded-lg px-4 py-2 text-sm font-semibold ne-tab-active">
-      📡 MME <span class="text-xs font-normal opacity-70">IRI Events</span>
-    </button>
-    <button onclick="selectNE('SGW')" id="ne-tab-SGW" class="rounded-lg px-4 py-2 text-sm font-semibold ne-tab-inactive">
-      🔀 S-GW <span class="text-xs font-normal opacity-70">CC Packets</span>
-    </button>
-    <button onclick="selectNE('PGW')" id="ne-tab-PGW" class="rounded-lg px-4 py-2 text-sm font-semibold ne-tab-inactive">
-      🌐 P-GW <span class="text-xs font-normal opacity-70">CC Packets</span>
-    </button>
-  </div>
+<!-- ══ MME — X2 IRI ══ -->
+<div class="tab-panel" id="tab-mme">
+  <div class="two-col" style="align-items:start">
+    <!-- Left: IRI Event Sender -->
+    <div>
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">📡 MME — Send X2 IRI Event to IRI-MF</div>
+          <div class="panel-actions">
+            <span class="pill pill-purple" id="asn1Badge">ASN.1 BER</span>
+          </div>
+        </div>
+        <div class="info-bar blue">
+          <span>📐 <strong>X2 Protocol:</strong> 3GPP TS 33.108 — IRI encoded in ASN.1 BER, delivered to LIS IRI-MF</span>
+        </div>
+        <div class="panel-body">
 
-  <div class="p-5 grid grid-cols-5 gap-5">
-
-    <!-- LEFT: Controls -->
-    <div class="col-span-2 space-y-4">
-
-      <!-- X1 Task Viewer -->
-      <div class="card rounded-xl p-4">
-        <div class="flex items-center justify-between mb-3">
-          <div class="flex items-center gap-2">
-            <div class="w-1.5 h-5 bg-orange-500 rounded"></div>
-            <div class="font-semibold text-white text-sm">X1 Tasks Received</div>
-          </div>
-          <div class="flex gap-2 items-center">
-            <span id="x1-count-badge" class="text-xs bg-orange-900/40 text-orange-300 border border-orange-800 rounded px-2 py-0.5">0 tasks</span>
-            <button onclick="loadX1Tasks()" class="text-xs text-orange-400 hover:text-orange-300">↻</button>
-          </div>
-        </div>
-        <div class="text-xs text-slate-500 mb-3">ADMF pushes X1 tasks here when a warrant is activated. This NE acknowledges and starts intercepting.</div>
-        <div id="x1-tasks-list" class="space-y-2 max-h-48 overflow-auto">
-          <div class="text-slate-500 text-xs text-center py-4">No tasks yet — activate a warrant via LEA portal.</div>
-        </div>
-      </div>
-
-      <!-- MME: X2 IRI Sender -->
-      <div id="mme-panel" class="card rounded-xl p-4 space-y-3">
-        <div class="flex items-center gap-2">
-          <div class="w-1.5 h-5 bg-blue-500 rounded"></div>
-          <div class="font-semibold text-white text-sm">Send X2 IRI Event <span class="text-xs text-slate-500 font-normal">MME → IRI-MF</span></div>
-        </div>
-        <div class="text-xs text-slate-500">MME sends IRI events to IRI-MF for every signaling event (attach, detach, location update, bearer setup).</div>
-
-        <div>
-          <label class="text-xs text-slate-400 mb-1 block">LIID</label>
-          <input id="x2-liid" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="LIID-2026-001"/>
-        </div>
-        <!-- Indian operator quick-select -->
-        <div>
-          <label class="text-xs text-slate-400 mb-1 block">Operator (India)</label>
-          <select id="x2-operator" class="input-field w-full rounded-lg px-3 py-2 text-sm" onchange="setOperator()">
-            <option value="airtel">Airtel (MCC 404, MNC 10)</option>
-            <option value="jio">Jio (MCC 405, MNC 854)</option>
-            <option value="vi">Vi / Vodafone-Idea (MCC 404, MNC 20)</option>
-            <option value="bsnl">BSNL (MCC 404, MNC 07)</option>
-          </select>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">Event Type</label>
-            <select id="x2-event" class="input-field w-full rounded-lg px-3 py-2 text-sm">
-              <option>ATTACH</option><option>DETACH</option>
-              <option>BEARER_ESTABLISH</option><option>BEARER_RELEASE</option>
-              <option>LOCATION_UPDATE</option><option>SMS</option>
-              <option>TAU</option><option>HANDOVER</option>
-            </select>
-          </div>
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">IMSI (India)</label>
-            <input id="x2-imsi" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="404101234567890"/>
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">Cell ID (ECGI)</label>
-            <input id="x2-cell" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="404-10-1001-00123"/>
-          </div>
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">TAI</label>
-            <input id="x2-tai" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="404-10-1001"/>
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">UE IP</label>
-            <input id="x2-ueip" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="10.45.0.1"/>
-          </div>
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">APN</label>
-            <input id="x2-apn" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="airtelgprs.com"/>
-          </div>
-        </div>
-        <div class="flex flex-wrap gap-1.5">
-          <button onclick="setEvt('ATTACH')"          class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">📶 Attach</button>
-          <button onclick="setEvt('BEARER_ESTABLISH')" class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">📡 Bearer↑</button>
-          <button onclick="setEvt('LOCATION_UPDATE')" class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">📍 Location</button>
-          <button onclick="setEvt('SMS')"              class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">💬 SMS</button>
-          <button onclick="setEvt('TAU')"              class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">🔄 TAU</button>
-          <button onclick="setEvt('HANDOVER')"         class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">📲 Handover</button>
-          <button onclick="setEvt('BEARER_RELEASE')"  class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">📴 Bearer↓</button>
-          <button onclick="setEvt('DETACH')"          class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">❌ Detach</button>
-        </div>
-        <button onclick="sendX2()" class="w-full bg-blue-700 hover:bg-blue-600 text-white rounded-lg py-2.5 text-sm font-semibold">
-          Send IRI via X2 →
-        </button>
-        <div id="x2-msg" class="text-xs rounded p-2 hidden"></div>
-      </div>
-
-      <!-- SGW/PGW: X3 CC Sender -->
-      <div id="gw-panel" class="card rounded-xl p-4 space-y-3 hidden">
-        <div class="flex items-center gap-2">
-          <div class="w-1.5 h-5 bg-purple-500 rounded"></div>
-          <div class="font-semibold text-white text-sm">Send X3 CC Packet <span id="gw-label" class="text-xs text-slate-500 font-normal">S-GW → CC-MF</span></div>
-        </div>
-        <div class="text-xs text-slate-500">Gateway mirrors intercepted UE user-plane packets (GTP-U payload) and sends them to CC-MF via X3.</div>
-        <div>
-          <label class="text-xs text-slate-400 mb-1 block">LIID</label>
-          <input id="x3-liid" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="LIID-2026-001"/>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">Direction</label>
-            <select id="x3-dir" class="input-field w-full rounded-lg px-3 py-2 text-sm">
-              <option value="UPLINK">UPLINK</option>
-              <option value="DOWNLINK">DOWNLINK</option>
-            </select>
-          </div>
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">Protocol</label>
-            <select id="x3-proto" class="input-field w-full rounded-lg px-3 py-2 text-sm">
-              <option value="6">TCP (6)</option>
-              <option value="17">UDP (17)</option>
-              <option value="1">ICMP (1)</option>
-            </select>
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">Src IP</label>
-            <input id="x3-srcip" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="10.45.0.1"/>
-          </div>
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">Src Port</label>
-            <input id="x3-srcport" type="number" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="54321"/>
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">Dst IP</label>
-            <input id="x3-dstip" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="8.8.8.8"/>
-          </div>
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">Dst Port</label>
-            <input id="x3-dstport" type="number" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="443"/>
-          </div>
-        </div>
-        <div>
-          <label class="text-xs text-slate-400 mb-1 block">Payload</label>
-          <input id="x3-payload" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="TLS ClientHello..."/>
-        </div>
-        <div class="flex flex-wrap gap-1.5">
-          <button onclick="fillX3('https')" class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">🌐 HTTPS</button>
-          <button onclick="fillX3('http')"  class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">📄 HTTP</button>
-          <button onclick="fillX3('dns')"   class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">🔍 DNS</button>
-          <button onclick="fillX3('voip')"  class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">📞 VoIP</button>
-          <button onclick="fillX3('down')"  class="text-xs bg-purple-900/50 hover:bg-purple-900 border border-purple-800 px-2 py-1 rounded">⬇ Downlink</button>
-        </div>
-        <button onclick="sendX3()" class="w-full bg-purple-700 hover:bg-purple-600 text-white rounded-lg py-2.5 text-sm font-semibold">
-          Send CC Packet via X3 →
-        </button>
-        <div id="x3-msg" class="text-xs rounded p-2 hidden"></div>
-      </div>
-    </div>
-
-    <!-- RIGHT: Event Log -->
-    <div class="col-span-3">
-      <div class="card rounded-xl p-5 h-full">
-        <div class="flex items-center justify-between mb-4">
-          <div>
-            <div class="font-semibold text-white" id="log-title">MME Event Log</div>
-            <div class="text-xs text-slate-400 mt-0.5" id="log-subtitle">IRI events sent via X2 interface</div>
-          </div>
-          <div class="flex gap-3 items-center">
-            <div class="text-xs text-slate-400 bg-slate-800 rounded px-2 py-1">
-              IRI: <span id="iri-count" class="text-blue-400 font-bold">0</span>
-              &nbsp;CC: <span id="cc-count" class="text-purple-400 font-bold">0</span>
+          <!-- Event Type Buttons -->
+          <div style="margin-bottom:14px">
+            <div class="lbl" style="margin-bottom:8px">Select Event Type (3GPP TS 33.108)</div>
+            <div class="evt-grid">
+              <div class="evt-btn" onclick="setEvt('ATTACH')"><div class="evt-icon">📲</div><div class="evt-name">ATTACH</div></div>
+              <div class="evt-btn" onclick="setEvt('DETACH')"><div class="evt-icon">📵</div><div class="evt-name">DETACH</div></div>
+              <div class="evt-btn" onclick="setEvt('BEARER_ESTABLISH')"><div class="evt-icon">🔗</div><div class="evt-name">BEARER<br>ESTABLISH</div></div>
+              <div class="evt-btn" onclick="setEvt('BEARER_RELEASE')"><div class="evt-icon">⛓️</div><div class="evt-name">BEARER<br>RELEASE</div></div>
+              <div class="evt-btn" onclick="setEvt('LOCATION_UPDATE')"><div class="evt-icon">📍</div><div class="evt-name">LOCATION<br>UPDATE</div></div>
+              <div class="evt-btn" onclick="setEvt('TAU')"><div class="evt-icon">🔄</div><div class="evt-name">TAU</div></div>
+              <div class="evt-btn" onclick="setEvt('HANDOVER')"><div class="evt-icon">↔️</div><div class="evt-name">HANDOVER</div></div>
+              <div class="evt-btn" onclick="setEvt('SMS')"><div class="evt-icon">💬</div><div class="evt-name">SMS</div></div>
             </div>
-            <button onclick="clearLog()" class="text-xs text-slate-400 hover:text-slate-300">Clear</button>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="lbl">Event Type</label>
+              <select id="mmeEventType">
+                <option>ATTACH</option><option>DETACH</option><option>BEARER_ESTABLISH</option>
+                <option>BEARER_RELEASE</option><option>LOCATION_UPDATE</option>
+                <option>TAU</option><option>HANDOVER</option><option>SMS</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="lbl">LI-ID (from X1 task)</label>
+              <input type="text" id="mmeIriLiid" value="LI-2024-IB-0001" placeholder="LI-2024-IB-0001">
+            </div>
+            <div class="form-group">
+              <label class="lbl">IMSI</label>
+              <input type="text" id="mmeImsi" value="404101234567890">
+            </div>
+            <div class="form-group">
+              <label class="lbl">MSISDN</label>
+              <input type="text" id="mmeMsisdn" value="+919876543210">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Cell-ID (eNB)</label>
+              <input type="text" id="mmeCellId" value="404-10-1001-00123">
+            </div>
+            <div class="form-group">
+              <label class="lbl">TAI (Tracking Area)</label>
+              <input type="text" id="mmeTai" value="404-10-1001">
+            </div>
+            <div class="form-group">
+              <label class="lbl">UE IP Address</label>
+              <input type="text" id="mmeUeIp" value="10.45.1.100">
+            </div>
+            <div class="form-group">
+              <label class="lbl">APN</label>
+              <input type="text" id="mmeApn" value="airtelgprs.com">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Bearer ID</label>
+              <input type="text" id="mmeBearerId" value="5">
+            </div>
+            <div class="form-group">
+              <label class="lbl">QCI (Quality Class)</label>
+              <input type="number" id="mmeQci" value="9" min="1" max="9">
+            </div>
+            <div class="form-group full">
+              <label class="lbl">SMS Content (for SMS events)</label>
+              <input type="text" id="mmeSmsContent" value="Test SMS message" placeholder="SMS text (SMS events only)">
+            </div>
+          </div>
+
+          <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-green" onclick="sendIRI()">📤 Send X2 IRI Event</button>
+            <button class="btn btn-sm" onclick="autofillFromX1MME()">📋 Auto-fill from X1 Task</button>
           </div>
         </div>
+      </div>
+    </div>
 
-        <!-- Flow diagram -->
-        <div class="bg-slate-900 rounded-lg p-3 mb-4 flex items-center gap-2 text-xs overflow-x-auto">
-          <div class="text-slate-500 shrink-0">Flow:</div>
-          <div id="flow-ne" class="bg-purple-900/50 border border-purple-700 rounded px-3 py-1.5 text-purple-200 font-semibold shrink-0">MME</div>
-          <div id="flow-iface" class="text-orange-400 font-bold shrink-0">── X2 IRI ──▶</div>
-          <div class="bg-green-900/50 border border-green-700 rounded px-3 py-1.5 text-green-200 font-semibold shrink-0" id="flow-mf">IRI-MF</div>
-          <div class="text-slate-500 shrink-0">──▶</div>
-          <div class="bg-blue-900/50 border border-blue-700 rounded px-3 py-1.5 text-blue-200 font-semibold shrink-0">HI Gateway</div>
-          <div class="text-slate-500 shrink-0">── HI2 ──▶</div>
-          <div class="bg-slate-700 border border-slate-600 rounded px-3 py-1.5 text-slate-200 font-semibold shrink-0">LEA</div>
+    <!-- Right: ASN.1 preview + log -->
+    <div>
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">🔬 ASN.1 BER Preview (3GPP TS 33.108)</div>
+          <div class="panel-actions"><button class="btn btn-sm" onclick="previewAsn1()">Generate Preview</button></div>
         </div>
+        <div class="panel-body" style="padding:12px">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:4px">ASN.1 SCHEMA (IRIParameters)</div>
+          <div class="asn1-box" style="height:110px;color:var(--muted)">IRIParameters ::= SEQUENCE {
+  iriVersion      [0] INTEGER,
+  timeStamp       [1] GeneralizedTime,
+  liID            [2] UTF8String,
+  sequenceNumber  [3] INTEGER,
+  iriType         [4] ENUMERATED { attach(0), detach(1),
+    bearerEstablish(2), bearerRelease(3), locationUpdate(4),
+    sms(5), tau(6), handover(7) },
+  targetIMSI      [5] OCTET STRING OPTIONAL,
+  targetMSISDN    [6] OCTET STRING OPTIONAL,
+  cellID          [7] OCTET STRING OPTIONAL,
+  tai             [8] OCTET STRING OPTIONAL,
+  ueIPAddress     [9] OCTET STRING OPTIONAL,
+  apn             [10] UTF8String OPTIONAL,
+  bearerID        [11] INTEGER OPTIONAL,
+  qci             [12] INTEGER OPTIONAL
+}</div>
+          <div style="font-size:10px;color:var(--muted);margin:8px 0 4px">ENCODED BER HEX (preview)</div>
+          <div id="asn1PreviewBox" class="asn1-box" style="height:100px">Click "Generate Preview" or send an event to see encoding.</div>
+        </div>
+      </div>
 
-        <div id="event-log" class="space-y-2 overflow-auto" style="max-height:calc(100vh - 340px)">
-          <div class="text-slate-500 text-xs text-center py-12">No events yet — select an NE and send an event.</div>
+      <!-- X2 Send Log -->
+      <div class="panel" style="margin-bottom:0">
+        <div class="panel-head">
+          <div class="panel-title">📜 X2 Send Log <span class="count-badge" id="iriLogCount">0</span></div>
+          <div class="panel-actions"><button class="btn btn-sm btn-danger" onclick="clearIRILog()">✕ Clear</button></div>
+        </div>
+        <div class="log-col-hdr" style="grid-template-columns:120px 100px 80px 1fr">
+          <span>Time</span><span>Event</span><span>LI-ID</span><span>Status / ASN.1</span>
+        </div>
+        <div id="iriSendLog" style="max-height:240px;overflow-y:auto">
+          <div class="log-empty">No events sent yet</div>
         </div>
       </div>
     </div>
   </div>
+</div>
 
-  <script>
-    // ── Config ──────────────────────────────────────────────
-    const CFG_KEY = 'lis_ne_config';
-    let cfg = JSON.parse(localStorage.getItem(CFG_KEY) || '{}');
-    function getLisBase()   { return 'http://'+(cfg.lisIp||'localhost')+':'+(cfg.lisPort||'8001'); }
-    function getIriMfBase() { return 'http://'+(cfg.lisIp||'localhost')+':'+(cfg.irimfPort||cfg.lisPort||'8001'); }
-    function getCcMfBase()  { return 'http://'+(cfg.lisIp||'localhost')+':'+(cfg.ccmfPort||cfg.lisPort||'8001'); }
+<!-- ══ SGW — X3 CC ══ -->
+<div class="tab-panel" id="tab-sgw">
+  <div class="two-col" style="align-items:start">
+    <div>
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">🔀 SGW — Send X3 CC to CC-MF</div>
+          <div class="panel-actions"><span class="pill pill-orange">SFTP → HI3</span></div>
+        </div>
+        <div class="info-bar orange">
+          <span>📦 <strong>X3 Protocol:</strong> GTP-U mirrored user-plane → CC-MF → SFTP delivery to LEA (HI3)</span>
+        </div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="lbl">LI-ID (from X1 task)</label>
+              <input type="text" id="sgwLiid" value="LI-2024-IB-0001">
+            </div>
+            <div class="form-group">
+              <label class="lbl">IMSI</label>
+              <input type="text" id="sgwImsi" value="404101234567890">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Source IP (UE)</label>
+              <input type="text" id="sgwSrcIp" value="10.45.1.100">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Destination IP</label>
+              <input type="text" id="sgwDstIp" value="142.250.190.36">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Source Port</label>
+              <input type="number" id="sgwSrcPort" value="45321">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Destination Port</label>
+              <input type="number" id="sgwDstPort" value="443">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Protocol</label>
+              <select id="sgwProto">
+                <option>TCP</option><option>UDP</option><option>HTTP</option><option>HTTPS</option><option>GTP-U</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="lbl">Payload (hex or text)</label>
+              <input type="text" id="sgwPayloadData" value="GET / HTTP/1.1\r\nHost: google.com\r\n\r\n" placeholder="packet payload">
+            </div>
+            <div class="form-group">
+              <label class="lbl">GTP TEID</label>
+              <input type="text" id="sgwTeid" value="0x00001234">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Packet Count</label>
+              <input type="number" id="sgwPktCount" value="1" min="1" max="50">
+            </div>
+          </div>
+          <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-orange" onclick="sendCC('sgw')">📤 Send X3 CC Packet</button>
+            <button class="btn btn-sm" onclick="autofillFromX1SGW()">📋 Auto-fill from X1 Task</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="panel" style="margin-bottom:0">
+        <div class="panel-head">
+          <div class="panel-title">📜 X3 SGW Send Log <span class="count-badge" id="sgwLogCount">0</span></div>
+          <div class="panel-actions"><button class="btn btn-sm btn-danger" onclick="clearCCLog('sgw')">✕ Clear</button></div>
+        </div>
+        <div id="sgwSendLog" style="max-height:400px;overflow-y:auto">
+          <div class="log-empty">No CC packets sent yet</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-    function openSettings() {
-      document.getElementById('cfg-lis-ip').value     = cfg.lisIp    || '';
-      document.getElementById('cfg-lis-port').value   = cfg.lisPort  || '8001';
-      document.getElementById('cfg-irimf-port').value = cfg.irimfPort|| '8002';
-      document.getElementById('cfg-ccmf-port').value  = cfg.ccmfPort || '8003';
-      document.getElementById('cfg-ne-ip').value      = cfg.neIp     || '';
-      document.getElementById('cfg-mme-port').value   = cfg.mmePort  || '9001';
-      document.getElementById('cfg-sgw-port').value   = cfg.sgwPort  || '9002';
-      document.getElementById('cfg-pgw-port').value   = cfg.pgwPort  || '9003';
-      document.getElementById('settings-modal').classList.remove('hidden');
-    }
-    function closeSettings() { document.getElementById('settings-modal').classList.add('hidden'); }
-    function saveSettings() {
-      cfg = {
-        lisIp:    document.getElementById('cfg-lis-ip').value.trim()     || 'localhost',
-        lisPort:  document.getElementById('cfg-lis-port').value.trim()   || '8001',
-        irimfPort:document.getElementById('cfg-irimf-port').value.trim() || '8001',
-        ccmfPort: document.getElementById('cfg-ccmf-port').value.trim()  || '8001',
-        neIp:     document.getElementById('cfg-ne-ip').value.trim()      || 'localhost',
-        mmePort:  document.getElementById('cfg-mme-port').value.trim()   || '9001',
-        sgwPort:  document.getElementById('cfg-sgw-port').value.trim()   || '9002',
-        pgwPort:  document.getElementById('cfg-pgw-port').value.trim()   || '9003',
-      };
-      localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
-      document.getElementById('cfg-display').textContent = 'LIS: '+getLisBase();
-      closeSettings();
-      checkHealth();
-      loadX1Tasks();
-    }
+<!-- ══ PGW — X3 CC ══ -->
+<div class="tab-panel" id="tab-pgw">
+  <div class="two-col" style="align-items:start">
+    <div>
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">🌐 PGW — Send X3 CC to CC-MF</div>
+          <div class="panel-actions"><span class="pill pill-green">SFTP → HI3</span></div>
+        </div>
+        <div class="info-bar orange">
+          <span>📦 <strong>X3 Protocol:</strong> PGW mirrors user-plane packets → CC-MF → SFTP delivery to LEA</span>
+        </div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="lbl">LI-ID (from X1 task)</label>
+              <input type="text" id="pgwLiid" value="LI-2024-IB-0001">
+            </div>
+            <div class="form-group">
+              <label class="lbl">IMSI</label>
+              <input type="text" id="pgwImsi" value="404101234567890">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Source IP (UE)</label>
+              <input type="text" id="pgwSrcIp" value="10.45.1.100">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Destination IP</label>
+              <input type="text" id="pgwDstIp" value="104.18.22.100">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Source Port</label>
+              <input type="number" id="pgwSrcPort" value="45322">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Destination Port</label>
+              <input type="number" id="pgwDstPort" value="80">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Protocol</label>
+              <select id="pgwProto">
+                <option>TCP</option><option>UDP</option><option>HTTP</option><option>HTTPS</option><option>DNS</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="lbl">DNS Query / Host</label>
+              <input type="text" id="pgwDnsQuery" value="google.com" placeholder="hostname for DNS events">
+            </div>
+            <div class="form-group">
+              <label class="lbl">APN</label>
+              <input type="text" id="pgwApn" value="airtelgprs.com">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Packet Size (bytes)</label>
+              <input type="number" id="pgwPktSize" value="1024">
+            </div>
+          </div>
+          <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-green" onclick="sendCC('pgw')">📤 Send X3 CC Packet</button>
+            <button class="btn btn-sm" onclick="autofillFromX1PGW()">📋 Auto-fill from X1 Task</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="panel" style="margin-bottom:0">
+        <div class="panel-head">
+          <div class="panel-title">📜 X3 PGW Send Log <span class="count-badge" id="pgwLogCount">0</span></div>
+          <div class="panel-actions"><button class="btn btn-sm btn-danger" onclick="clearCCLog('pgw')">✕ Clear</button></div>
+        </div>
+        <div id="pgwSendLog" style="max-height:400px;overflow-y:auto">
+          <div class="log-empty">No CC packets sent yet</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-    let currentNE = 'MME';
-    let iriCount = 0, ccCount = 0;
+<script>
+'use strict';
 
-    function selectNE(ne) {
-      currentNE = ne;
-      ['MME','SGW','PGW'].forEach(n => {
-        document.getElementById('ne-tab-'+n).className =
-          'rounded-lg px-4 py-2 text-sm font-semibold '+(n===ne?'ne-tab-active':'ne-tab-inactive');
+/* ══ Config ══ */
+let LIS_BASE = 'http://76.13.211.64:8001';
+let x1PollTimer = null;
+let x1Data = {mme:[],sgw:[],pgw:[]};
+let iriSeq = 0;
+let iriLog = [], sgwLog = [], pgwLog = [];
+
+const OPERATORS = {
+  AIRTEL: { mcc:'404', mnc:'10', mccmnc:'404-10', imsi_prefix:'4040', cell:'404-10-1001-00123', tai:'404-10-1001', apn:'airtelgprs.com' },
+  JIO:    { mcc:'405', mnc:'854', mccmnc:'405-854', imsi_prefix:'4058', cell:'405-854-2001-00456', tai:'405-854-2001', apn:'jionet' },
+  VI:     { mcc:'404', mnc:'20', mccmnc:'404-20', imsi_prefix:'4042', cell:'404-20-3001-00789', tai:'404-20-3001', apn:'portalnmms' },
+  BSNL:   { mcc:'404', mnc:'07', mccmnc:'404-07', imsi_prefix:'4040', cell:'404-07-4001-01001', tai:'404-07-4001', apn:'bsnlnet' }
+};
+
+function setOperator(){
+  const op=OPERATORS[document.getElementById('operatorSelect').value];
+  if(!op)return;
+  // Fill MME fields
+  document.getElementById('mmeImsi').value=op.imsi_prefix+'1234567890'.slice(0,11);
+  document.getElementById('mmeCellId').value=op.cell;
+  document.getElementById('mmeTai').value=op.tai;
+  document.getElementById('mmeApn').value=op.apn;
+  // Fill SGW/PGW fields
+  document.getElementById('sgwImsi').value=op.imsi_prefix+'1234567890'.slice(0,11);
+  document.getElementById('pgwImsi').value=op.imsi_prefix+'1234567890'.slice(0,11);
+  document.getElementById('pgwApn').value=op.apn;
+}
+
+function saveConfig(){
+  LIS_BASE=`http://${document.getElementById('cfgLisIp').value.trim()}:${document.getElementById('cfgLisPort').value.trim()}`;
+  fetchAllX1();
+}
+
+function showTab(id){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  event.currentTarget.classList.add('active');
+  updateAsn1Badge();
+}
+
+function updateAsn1Badge(){
+  const use=document.getElementById('useAsn1').checked;
+  const b=document.getElementById('asn1Badge');
+  b.textContent=use?'ASN.1 BER':'JSON';
+  b.className=use?'pill pill-purple':'pill pill-gray';
+}
+document.getElementById('useAsn1').addEventListener('change',updateAsn1Badge);
+
+/* clock */
+function updateClock(){
+  document.getElementById('sysTime').textContent='IST '+
+    new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',hour12:false,
+      day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'
+    }).format(new Date());
+}
+setInterval(updateClock,1000); updateClock();
+
+async function checkServer(){
+  try{
+    await fetch(LIS_BASE+'/health',{signal:AbortSignal.timeout(4000)});
+    document.getElementById('srvStatus').className='badge badge-green';
+    document.getElementById('srvStatus').textContent='● LIS Connected';
+  }catch{
+    document.getElementById('srvStatus').className='badge badge-red';
+    document.getElementById('srvStatus').textContent='● LIS Disconnected';
+  }
+}
+
+/* ══ X1 Tasks ══ */
+async function fetchAllX1(){
+  const NEs=['mme','sgw','pgw'];
+  let total=0;
+  for(const ne of NEs){
+    try{
+      const d=await (await fetch(LIS_BASE+`/x1/tasks/${ne}`,{signal:AbortSignal.timeout(4000)})).json();
+      const prev=x1Data[ne].length;
+      x1Data[ne]=Array.isArray(d)?d:(d.tasks||[]);
+      if(x1Data[ne].length>prev && prev>=0) notifyNewX1();
+      total+=x1Data[ne].length;
+    }catch{x1Data[ne]=[];}
+  }
+  document.getElementById('x1TabCount').textContent=total;
+  renderX1();
+  checkServer();
+}
+
+function notifyNewX1(){
+  const n=document.getElementById('x1Notify');
+  n.style.display='inline';
+  setTimeout(()=>n.style.display='none',5000);
+}
+
+function renderX1(){
+  const grid=document.getElementById('x1Grid');
+  const labels={mme:'📡 MME (IRI)',sgw:'🔀 SGW (CC)',pgw:'🌐 PGW (CC)'};
+  let count=0;
+  let html='';
+  for(const [ne,tasks] of Object.entries(x1Data)){
+    html+=`<div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">${labels[ne]}</div>`;
+    if(!tasks.length){
+      html+=`<div style="color:var(--muted);font-size:11px;font-style:italic;padding:8px;background:rgba(0,0,0,.2);border-radius:5px">No tasks provisioned</div>`;
+    } else {
+      tasks.forEach(t=>{
+        const task=typeof t==='string'?tryJson(t):t;
+        count++;
+        html+=`<div class="x1-task-card">
+          <div class="x1-task-head">
+            <span class="x1-task-liid">${esc(task.liid||'—')}</span>
+            <span class="pill ${iCol(task.intercept_type)}">${esc(task.intercept_type||'IRI_AND_CC')}</span>
+          </div>
+          <div class="x1-task-fields">
+            <div class="x1-field"><div class="x1-field-label">Target MSISDN</div><div class="x1-field-val">${esc(task.target_msisdn||'—')}</div></div>
+            <div class="x1-field"><div class="x1-field-label">Target IMSI</div><div class="x1-field-val">${esc(task.target_imsi||'—')}</div></div>
+            <div class="x1-field"><div class="x1-field-label">LEA-ID</div><div class="x1-field-val">${esc(task.lea_id||'—')}</div></div>
+            <div class="x1-field"><div class="x1-field-label">Valid Until</div><div class="x1-field-val" style="font-size:10px">${esc(task.valid_until||'—')}</div></div>
+          </div>
+          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+            ${ne==='mme'?`<button class="btn btn-sm btn-green" onclick="fillMMEFromTask('${esc(JSON.stringify(task))}')">→ Use in MME X2</button>`:''}
+            ${ne==='sgw'?`<button class="btn btn-sm btn-orange" onclick="fillSGWFromTask('${esc(JSON.stringify(task))}')">→ Use in SGW X3</button>`:''}
+            ${ne==='pgw'?`<button class="btn btn-sm btn-green" onclick="fillPGWFromTask('${esc(JSON.stringify(task))}')">→ Use in PGW X3</button>`:''}
+          </div>
+        </div>`;
       });
-      const isMme = ne === 'MME';
-      document.getElementById('mme-panel').classList.toggle('hidden', !isMme);
-      document.getElementById('gw-panel').classList.toggle('hidden', isMme);
-      document.getElementById('gw-label').textContent = ne === 'SGW' ? 'S-GW → CC-MF' : 'P-GW → CC-MF';
-      document.getElementById('log-title').textContent = ne + ' Event Log';
-      document.getElementById('log-subtitle').textContent = isMme ? 'IRI events sent via X2 interface' : 'CC packets sent via X3 interface';
-      document.getElementById('flow-ne').textContent = ne;
-      document.getElementById('flow-iface').textContent = isMme ? '── X2 IRI ──▶' : '── X3 CC ──▶';
-      document.getElementById('flow-mf').textContent = isMme ? 'IRI-MF' : 'CC-MF';
-      loadX1Tasks();
     }
+    html+='</div>';
+  }
+  grid.innerHTML=html;
+  document.getElementById('x1TabCount').textContent=count;
+  document.getElementById('x1Count').textContent=count;
+}
 
-    async function checkHealth() {
-      const dot = document.getElementById('status-dot');
-      const txt = document.getElementById('status-text');
-      try {
-        const r = await fetch(getLisBase()+'/health', {signal:AbortSignal.timeout(2000)});
-        if (r.ok) { dot.className='w-2.5 h-2.5 rounded-full bg-green-400'; txt.textContent='LIS Server Online'; txt.className='text-green-400 text-xs'; }
-      } catch { dot.className='w-2.5 h-2.5 rounded-full bg-red-500'; txt.textContent='Server Offline'; txt.className='text-red-400 text-xs'; }
-    }
+function fillMMEFromTask(json){
+  const t=tryJson(json);
+  if(t.liid) document.getElementById('mmeIriLiid').value=t.liid;
+  if(t.target_imsi) document.getElementById('mmeImsi').value=t.target_imsi;
+  if(t.target_msisdn) document.getElementById('mmeMsisdn').value=t.target_msisdn;
+}
+function fillSGWFromTask(json){
+  const t=tryJson(json);
+  if(t.liid) document.getElementById('sgwLiid').value=t.liid;
+  if(t.target_imsi) document.getElementById('sgwImsi').value=t.target_imsi;
+}
+function fillPGWFromTask(json){
+  const t=tryJson(json);
+  if(t.liid) document.getElementById('pgwLiid').value=t.liid;
+  if(t.target_imsi) document.getElementById('pgwImsi').value=t.target_imsi;
+  if(t.delivery_ip) { } // future use
+}
+function autofillFromX1MME(){ if(x1Data.mme.length>0) fillMMEFromTask(JSON.stringify(x1Data.mme[0])); }
+function autofillFromX1SGW(){ if(x1Data.sgw.length>0) fillSGWFromTask(JSON.stringify(x1Data.sgw[0])); }
+function autofillFromX1PGW(){ if(x1Data.pgw.length>0) fillPGWFromTask(JSON.stringify(x1Data.pgw[0])); }
 
-    async function loadX1Tasks() {
-      try {
-        const tasks = await fetch(getLisBase()+'/x1/tasks/'+currentNE,{signal:AbortSignal.timeout(2000)}).then(r=>r.json());
-        document.getElementById('x1-count-badge').textContent = tasks.length+' tasks';
-        const el = document.getElementById('x1-tasks-list');
-        if (!tasks.length) { el.innerHTML='<div class="text-slate-500 text-xs text-center py-3">No X1 tasks for '+currentNE+' yet.</div>'; return; }
-        el.innerHTML = tasks.map(t=>`
-          <div class="log-x1 text-xs">
-            <div class="flex gap-2 items-center">
-              <span class="font-bold ${t.action==='ACTIVATE'?'text-green-400':'text-red-400'}">${t.action}</span>
-              <span class="text-blue-300">${t.liid}</span>
-              <span class="text-slate-400">${t.intercept_type||''}</span>
-            </div>
-            <div class="text-slate-500 mt-0.5">Target: ${t.target_value} (${t.target_id_type}) · ${fmtTime(t.received_at)}</div>
-          </div>`).join('');
-        // Auto-fill LIID if only one active
-        const active = tasks.filter(t=>t.action==='ACTIVATE');
-        if (active.length===1) {
-          document.getElementById('x2-liid').value = active[0].liid;
-          document.getElementById('x3-liid').value = active[0].liid;
-        }
-      } catch {}
-    }
+function setEvt(type){ document.getElementById('mmeEventType').value=type; }
 
-    async function sendX2() {
-      const msg = document.getElementById('x2-msg');
-      const body = {
-        liid:            document.getElementById('x2-liid').value.trim(),
-        sequence_number: Math.floor(Math.random()*99999),
-        event_type:      document.getElementById('x2-event').value,
-        timestamp:       new Date().toISOString(),
-        imsi:            vv('x2-imsi'), cell_id: vv('x2-cell'), tai: vv('x2-tai'),
-        ue_ip:           vv('x2-ueip'), apn: vv('x2-apn'),
-      };
-      if (!body.liid) { showMsg(msg,'Enter LIID',false); return; }
-      try {
-        const r = await fetch(getIriMfBase()+'/x2/iri',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-        const d = await r.json();
-        showMsg(msg, r.ok?`✓ IRI sent — seq ${d.seq}`:`✗ ${d.detail}`, r.ok);
-        if (r.ok) { appendEvent('iri', body, d); }
-      } catch { showMsg(msg,'✗ Server unreachable',false); }
-    }
+/* ══ ASN.1 BER Encoder (JavaScript — 3GPP TS 33.108 IRIParameters) ══ */
+const IRI_TYPE_MAP = {
+  ATTACH:0, DETACH:1, BEARER_ESTABLISH:2, BEARER_RELEASE:3,
+  LOCATION_UPDATE:4, SMS:5, TAU:6, HANDOVER:7
+};
 
-    async function sendX3() {
-      const msg = document.getElementById('x3-msg');
-      const payload = document.getElementById('x3-payload').value.trim();
-      const body = {
-        liid:        document.getElementById('x3-liid').value.trim(),
-        seq_number:  Math.floor(Math.random()*99999),
-        timestamp:   new Date().toISOString(),
-        direction:   document.getElementById('x3-dir').value,
-        payload_hex: strToHex(payload),
-        src_ip:      vv('x3-srcip'), dst_ip: vv('x3-dstip'),
-        src_port:    parseInt(document.getElementById('x3-srcport').value)||null,
-        dst_port:    parseInt(document.getElementById('x3-dstport').value)||null,
-        protocol:    parseInt(document.getElementById('x3-proto').value),
-        frame_length:payload.length||100,
-      };
-      if (!body.liid) { showMsg(msg,'Enter LIID',false); return; }
-      try {
-        const r = await fetch(getCcMfBase()+'/x3/cc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-        const d = await r.json();
-        showMsg(msg, r.ok?`✓ CC sent — seq ${d.seq}`:`✗ ${d.detail}`, r.ok);
-        if (r.ok) appendEvent('cc', body, d);
-      } catch { showMsg(msg,'✗ Server unreachable',false); }
-    }
+function berLen(len){
+  if(len<128) return [len];
+  if(len<256) return [0x81,len];
+  return [0x82,(len>>8)&0xff,len&0xff];
+}
+function berTag(cls,constructed,tagNum){
+  /* cls: 0=univ,1=app,2=ctx,3=priv */
+  return [(cls<<6)|(constructed?0x20:0x00)|tagNum];
+}
+function berTlv(tagByte,value){
+  const v=Array.isArray(value)?value:[...value];
+  return [...[tagByte],...berLen(v.length),...v];
+}
+function berCtxTlv(tagNum,value,constructed){
+  const bytes=Array.isArray(value)?value:[...value];
+  const tag=(0x80|(constructed?0x20:0x00)|tagNum);
+  return [tag,...berLen(bytes.length),...bytes];
+}
+function encUtf8(str){
+  const enc=new TextEncoder();
+  return Array.from(enc.encode(str));
+}
+function encInt(n){
+  if(n===0) return [0x00];
+  const bytes=[];
+  let v=n;
+  while(v>0){bytes.unshift(v&0xff);v>>=8;}
+  if(bytes[0]&0x80) bytes.unshift(0x00);
+  return bytes;
+}
+function encGeneralizedTime(dt){
+  const d=new Date(dt);
+  const pad=n=>String(n).padStart(2,'0');
+  const ts=`${d.getUTCFullYear()}${pad(d.getUTCMonth()+1)}${pad(d.getUTCDate())}`+
+    `${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
+  return encUtf8(ts);
+}
+function encOctetString(str){ return encUtf8(str); }
 
-    function appendEvent(type, req, resp) {
-      const log = document.getElementById('event-log');
-      const placeholder = log.querySelector('.text-slate-500');
-      if (placeholder) placeholder.remove();
-      const div = document.createElement('div');
-      if (type==='iri') {
-        iriCount++;
-        div.className = 'log-iri text-xs';
-        div.innerHTML = `<div class="flex gap-2 items-center mb-1">
-          <span class="text-blue-400 font-bold">[X2/IRI]</span>
-          <span class="text-slate-400">${fmtTime(new Date().toISOString())}</span>
-          <span class="text-yellow-300 font-semibold">${req.event_type}</span>
-          <span class="text-slate-300">LIID: ${req.liid}</span>
-          <span class="text-green-400">seq ${resp.seq}</span>
-        </div>
-        <div class="text-slate-400">IMSI:${req.imsi||'—'} · Cell:${req.cell_id||'—'} · TAI:${req.tai||'—'} · UE-IP:${req.ue_ip||'—'} · APN:${req.apn||'—'}</div>`;
-      } else {
-        ccCount++;
-        const protoName = {6:'TCP',17:'UDP',1:'ICMP',132:'SCTP'}[req.protocol]||req.protocol;
-        div.className = 'log-cc text-xs';
-        div.innerHTML = `<div class="flex gap-2 items-center mb-1">
-          <span class="text-purple-400 font-bold">[X3/CC]</span>
-          <span class="text-slate-400">${fmtTime(new Date().toISOString())}</span>
-          <span class="${req.direction==='UPLINK'?'text-cyan-300':'text-yellow-300'} font-semibold">${req.direction}</span>
-          <span class="text-slate-300">LIID: ${req.liid}</span>
-          <span class="text-green-400">seq ${resp.seq}</span>
-        </div>
-        <div class="text-slate-400">${req.src_ip||'?'}:${req.src_port||'?'} ──[${protoName}]──▶ ${req.dst_ip||'?'}:${req.dst_port||'?'}</div>
-        ${req.payload_hex?`<div class="text-slate-500 mt-0.5 truncate font-mono">0x${req.payload_hex.substring(0,48)}…</div>`:''}`;
-      }
-      log.prepend(div);
-      document.getElementById('iri-count').textContent = iriCount;
-      document.getElementById('cc-count').textContent  = ccCount;
-    }
+function encodeIRIAsn1(params){
+  /* Build IRIParameters SEQUENCE */
+  const fields=[];
+  // [0] iriVersion INTEGER = 1
+  fields.push(...berCtxTlv(0,berTlv(0x02,encInt(1))));
+  // [1] timeStamp GeneralizedTime
+  const tsBytes=encGeneralizedTime(params.ts||new Date());
+  fields.push(...berCtxTlv(1,[0x18,...berLen(tsBytes.length),...tsBytes]));
+  // [2] liID UTF8String
+  const liidBytes=encUtf8(params.liid||'');
+  fields.push(...berCtxTlv(2,[0x0C,...berLen(liidBytes.length),...liidBytes]));
+  // [3] sequenceNumber INTEGER
+  fields.push(...berCtxTlv(3,[0x02,...berLen(encInt(params.seq||0).length),...encInt(params.seq||0)]));
+  // [4] iriType ENUMERATED
+  const iriTypeVal=IRI_TYPE_MAP[params.event_type]||0;
+  fields.push(...berCtxTlv(4,[0x0A,0x01,iriTypeVal]));
+  // [5] targetIMSI OCTET STRING
+  if(params.imsi){ const b=encOctetString(params.imsi); fields.push(...berCtxTlv(5,[0x04,...berLen(b.length),...b])); }
+  // [6] targetMSISDN OCTET STRING
+  if(params.msisdn){ const b=encOctetString(params.msisdn); fields.push(...berCtxTlv(6,[0x04,...berLen(b.length),...b])); }
+  // [7] cellID OCTET STRING
+  if(params.cell_id){ const b=encOctetString(params.cell_id); fields.push(...berCtxTlv(7,[0x04,...berLen(b.length),...b])); }
+  // [8] tai OCTET STRING
+  if(params.tai){ const b=encOctetString(params.tai); fields.push(...berCtxTlv(8,[0x04,...berLen(b.length),...b])); }
+  // [9] ueIPAddress OCTET STRING
+  if(params.ue_ip){ const b=encOctetString(params.ue_ip); fields.push(...berCtxTlv(9,[0x04,...berLen(b.length),...b])); }
+  // [10] apn UTF8String
+  if(params.apn){ const b=encUtf8(params.apn); fields.push(...berCtxTlv(10,[0x0C,...berLen(b.length),...b])); }
+  // [11] bearerID INTEGER
+  if(params.bearer_id!=null){ fields.push(...berCtxTlv(11,[0x02,...berLen(encInt(params.bearer_id).length),...encInt(params.bearer_id)])); }
+  // [12] qci INTEGER
+  if(params.qci!=null){ fields.push(...berCtxTlv(12,[0x02,...berLen(encInt(params.qci).length),...encInt(params.qci)])); }
+  // Wrap in SEQUENCE (0x30)
+  const seq=[0x30,...berLen(fields.length),...fields];
+  return seq;
+}
 
-    // Indian operator profiles
-    const OPERATORS = {
-      airtel: { mcc:'404', mnc:'10', imsi:'404101234567890', cell:'404-10-1001-00123', tai:'404-10-1001', apn:'airtelgprs.com' },
-      jio:    { mcc:'405', mnc:'854',imsi:'405854987654321', cell:'405-854-2001-00456',tai:'405-854-2001',apn:'jionet' },
-      vi:     { mcc:'404', mnc:'20', imsi:'404201122334455', cell:'404-20-3001-00789', tai:'404-20-3001', apn:'portalnmms' },
-      bsnl:   { mcc:'404', mnc:'07', imsi:'404075566778899', cell:'404-07-4001-01000', tai:'404-07-4001', apn:'bsnlnet' },
-    };
+function bytesToHex(bytes){ return bytes.map(b=>b.toString(16).padStart(2,'0')).join(''); }
 
-    function setOperator() {
-      const op = OPERATORS[document.getElementById('x2-operator').value];
-      if (!op) return;
-      document.getElementById('x2-imsi').value = op.imsi;
-      document.getElementById('x2-cell').value = op.cell;
-      document.getElementById('x2-tai').value  = op.tai;
-      document.getElementById('x2-apn').value  = op.apn;
-    }
+function previewAsn1(){
+  const params={
+    ts:new Date().toISOString(),
+    liid:document.getElementById('mmeIriLiid').value,
+    seq:iriSeq,
+    event_type:document.getElementById('mmeEventType').value,
+    imsi:document.getElementById('mmeImsi').value,
+    msisdn:document.getElementById('mmeMsisdn').value,
+    cell_id:document.getElementById('mmeCellId').value,
+    tai:document.getElementById('mmeTai').value,
+    ue_ip:document.getElementById('mmeUeIp').value,
+    apn:document.getElementById('mmeApn').value,
+    bearer_id:parseInt(document.getElementById('mmeBearerId').value)||5,
+    qci:parseInt(document.getElementById('mmeQci').value)||9,
+  };
+  const encoded=encodeIRIAsn1(params);
+  const hex=bytesToHex(encoded);
+  document.getElementById('asn1PreviewBox').textContent=formatHex(hex)+'\n\n('+encoded.length+' bytes)';
+}
 
-    function setEvt(type) {
-      document.getElementById('x2-event').value = type;
-      // Fill Indian defaults if fields are empty
-      const op = OPERATORS[document.getElementById('x2-operator')?.value] || OPERATORS.airtel;
-      if (!document.getElementById('x2-imsi').value) document.getElementById('x2-imsi').value = op.imsi;
-      if (!document.getElementById('x2-cell').value) document.getElementById('x2-cell').value = op.cell;
-      if (!document.getElementById('x2-tai').value)  document.getElementById('x2-tai').value  = op.tai;
-      if (!document.getElementById('x2-ueip').value) document.getElementById('x2-ueip').value = '10.45.0.1';
-      if (!document.getElementById('x2-apn').value)  document.getElementById('x2-apn').value  = op.apn;
-    }
+function formatHex(hex){
+  const pairs=[]; for(let i=0;i<hex.length;i+=2) pairs.push(hex.slice(i,i+2));
+  const rows=[]; for(let i=0;i<pairs.length;i+=16) rows.push(pairs.slice(i,i+16).join(' '));
+  return rows.join('\n');
+}
 
-    function fillX3(t) {
-      const m = {
-        https:{src:'10.45.0.1',sp:54321,dst:'142.250.180.46',dp:443,pr:'6',dir:'UPLINK',pl:'TLS ClientHello'},
-        http: {src:'10.45.0.1',sp:54322,dst:'93.184.216.34', dp:80, pr:'6',dir:'UPLINK',pl:'GET / HTTP/1.1'},
-        dns:  {src:'10.45.0.1',sp:53001,dst:'8.8.8.8',       dp:53, pr:'17',dir:'UPLINK',pl:'DNS Query'},
-        voip: {src:'10.45.0.1',sp:16384,dst:'203.0.113.5',   dp:5004,pr:'17',dir:'UPLINK',pl:'RTP Voice'},
-        down: {src:'142.250.180.46',sp:443,dst:'10.45.0.1',  dp:54321,pr:'6',dir:'DOWNLINK',pl:'TLS App Data'},
-      };
-      const s=m[t]; if(!s) return;
-      document.getElementById('x3-srcip').value=s.src; document.getElementById('x3-srcport').value=s.sp;
-      document.getElementById('x3-dstip').value=s.dst; document.getElementById('x3-dstport').value=s.dp;
-      document.getElementById('x3-proto').value=s.pr;  document.getElementById('x3-dir').value=s.dir;
-      document.getElementById('x3-payload').value=s.pl;
-    }
+/* ══ Send X2 IRI ══ */
+async function sendIRI(){
+  const useAsn1=document.getElementById('useAsn1').checked;
+  const ts=new Date().toISOString();
+  iriSeq++;
+  const params={
+    ts, liid:document.getElementById('mmeIriLiid').value,
+    seq:iriSeq,
+    event_type:document.getElementById('mmeEventType').value,
+    imsi:document.getElementById('mmeImsi').value,
+    msisdn:document.getElementById('mmeMsisdn').value,
+    cell_id:document.getElementById('mmeCellId').value,
+    tai:document.getElementById('mmeTai').value,
+    ue_ip:document.getElementById('mmeUeIp').value,
+    apn:document.getElementById('mmeApn').value,
+    bearer_id:parseInt(document.getElementById('mmeBearerId').value)||5,
+    qci:parseInt(document.getElementById('mmeQci').value)||9,
+    sms_content:document.getElementById('mmeSmsContent').value,
+    ne_source:'MME',
+  };
 
-    function clearLog() {
-      document.getElementById('event-log').innerHTML='<div class="text-slate-500 text-xs text-center py-12">Log cleared.</div>';
-      iriCount=0; ccCount=0;
-      document.getElementById('iri-count').textContent='0';
-      document.getElementById('cc-count').textContent='0';
-    }
+  let asn1Hex='';
+  if(useAsn1){
+    const encoded=encodeIRIAsn1(params);
+    asn1Hex=bytesToHex(encoded);
+    document.getElementById('asn1PreviewBox').textContent=formatHex(asn1Hex)+'\n\n('+encoded.length+' bytes)';
+  }
 
-    function vv(id) { return document.getElementById(id)?.value?.trim()||null; }
-    function fmtTime(d) { return d?new Date(d).toLocaleTimeString():''; }
-    function showMsg(el,txt,ok) {
-      el.textContent=txt; el.classList.remove('hidden');
-      el.className='text-xs rounded p-2 '+(ok?'bg-green-900/40 text-green-300':'bg-red-900/40 text-red-300');
-    }
-    function strToHex(s) {
-      if(!s) return '';
-      return Array.from(new TextEncoder().encode(s)).map(b=>b.toString(16).padStart(2,'0')).join('');
-    }
+  const body={
+    liid:params.liid,
+    event_type:params.event_type,
+    ne_source:'MME',
+    payload:{
+      imsi:params.imsi, msisdn:params.msisdn, cell_id:params.cell_id,
+      tai:params.tai, ue_ip:params.ue_ip, apn:params.apn,
+      bearer_id:params.bearer_id, qci:params.qci,
+      sms_content:params.sms_content,
+    },
+    asn1_hex:asn1Hex||null,
+    encoding:useAsn1?'ASN1_BER':'JSON',
+    seq_no:iriSeq,
+  };
 
-    // Apply saved config on load
-    document.getElementById('cfg-display').textContent = 'LIS: '+getLisBase();
-    checkHealth(); setInterval(checkHealth,6000);
-    loadX1Tasks(); setInterval(loadX1Tasks, 5000);
-  </script>
+  const logEntry={ts:fmtTs(ts), event:params.event_type, liid:params.liid, asn1:asn1Hex, ok:false, err:''};
+  try{
+    const r=await fetch(LIS_BASE+'/x2/iri',{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify(body),
+      signal:AbortSignal.timeout(5000)});
+    logEntry.ok=r.ok;
+    logEntry.err=r.ok?'':'HTTP '+r.status;
+  }catch(e){logEntry.err=e.message;}
+  iriLog.unshift(logEntry);
+  renderIRILog();
+}
+
+function renderIRILog(){
+  const el=document.getElementById('iriSendLog');
+  document.getElementById('iriLogCount').textContent=iriLog.length;
+  if(!iriLog.length){el.innerHTML='<div class="log-empty">No events sent</div>';return;}
+  el.innerHTML=iriLog.map(e=>`
+    <div style="display:grid;grid-template-columns:120px 100px 80px 1fr;gap:8px;padding:7px 12px;border-bottom:1px solid rgba(48,54,61,.4);font-size:12px;align-items:start">
+      <span style="color:var(--muted);font-family:monospace;font-size:10px">${esc(e.ts)}</span>
+      <span class="pill ${eCol(e.event)}" style="font-size:10px">${esc(e.event)}</span>
+      <span style="color:var(--accent);font-family:monospace;font-size:11px">${esc(e.liid)}</span>
+      <span style="font-size:11px">
+        ${e.ok?'<span class="pill pill-green" style="font-size:10px">✓ Sent</span>':'<span class="pill pill-red" style="font-size:10px">✗ '+esc(e.err)+'</span>'}
+        ${e.asn1?'<span class="pill pill-purple" style="font-size:10px">ASN.1 BER</span> <span style="color:var(--muted);font-family:monospace;font-size:10px">'+e.asn1.substring(0,16)+'…</span>':'<span class="pill pill-gray" style="font-size:10px">JSON</span>'}
+      </span>
+    </div>`).join('');
+}
+
+function clearIRILog(){iriLog=[];renderIRILog();}
+
+/* ══ Send X3 CC ══ */
+async function sendCC(ne){
+  const issgw=ne==='sgw';
+  const pref=ne;
+  const body={
+    liid:    document.getElementById(pref+'Liid').value.trim(),
+    ne_source: ne.toUpperCase(),
+    payload:{
+      imsi:      document.getElementById(pref+'Imsi').value,
+      src_ip:    document.getElementById(pref+'SrcIp').value,
+      dst_ip:    document.getElementById(pref+'DstIp').value,
+      src_port:  parseInt(document.getElementById(pref+'SrcPort').value),
+      dst_port:  parseInt(document.getElementById(pref+'DstPort').value),
+      protocol:  document.getElementById(pref+'Proto').value,
+      data:      issgw?document.getElementById('sgwPayloadData').value:undefined,
+      dns_query: !issgw?document.getElementById('pgwDnsQuery').value:undefined,
+      apn:       !issgw?document.getElementById('pgwApn').value:undefined,
+      teid:      issgw?document.getElementById('sgwTeid').value:undefined,
+      size_bytes:issgw?undefined:parseInt(document.getElementById('pgwPktSize').value),
+      pkt_count: issgw?parseInt(document.getElementById('sgwPktCount').value):1,
+    },
+    deliver_sftp:true,
+  };
+  // remove undefined
+  Object.keys(body.payload).forEach(k=>{if(body.payload[k]===undefined)delete body.payload[k];});
+  body.payload.size_bytes=body.payload.size_bytes||Math.floor(Math.random()*1400)+64;
+
+  const ts=new Date().toISOString();
+  const logEntry={ts:fmtTs(ts),liid:body.liid,ne,proto:body.payload.protocol,
+    size:body.payload.size_bytes,ok:false,err:'',sftp:false,sftp_path:''};
+  try{
+    const r=await fetch(LIS_BASE+'/x3/cc',{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify(body),
+      signal:AbortSignal.timeout(8000)});
+    const d=await r.json();
+    logEntry.ok=r.ok;
+    logEntry.sftp=d.sftp_delivered||false;
+    logEntry.sftp_path=d.sftp_path||'';
+    logEntry.err=r.ok?'':'HTTP '+r.status;
+  }catch(e){logEntry.err=e.message;}
+  if(ne==='sgw'){sgwLog.unshift(logEntry);renderCCLog('sgw');}
+  else{pgwLog.unshift(logEntry);renderCCLog('pgw');}
+}
+
+function renderCCLog(ne){
+  const log=ne==='sgw'?sgwLog:pgwLog;
+  const el=document.getElementById(ne+'SendLog');
+  document.getElementById(ne+'LogCount').textContent=log.length;
+  if(!log.length){el.innerHTML='<div class="log-empty">No packets sent</div>';return;}
+  el.innerHTML=log.map(e=>`
+    <div style="padding:8px 12px;border-bottom:1px solid rgba(48,54,61,.4);font-size:12px">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+        <span style="color:var(--muted);font-family:monospace;font-size:10px">${esc(e.ts)}</span>
+        <span class="pill pill-orange" style="font-size:10px">${esc(e.ne)}</span>
+        <span style="color:var(--accent);font-family:monospace;font-size:11px">${esc(e.liid)}</span>
+        <span class="pill pill-gray" style="font-size:10px">${esc(e.proto)}</span>
+        <span style="color:var(--muted);font-size:11px">${esc(e.size)}B</span>
+        ${e.ok?'<span class="pill pill-green" style="font-size:10px">✓ Sent</span>':'<span class="pill pill-red" style="font-size:10px">✗ '+esc(e.err)+'</span>'}
+        ${e.sftp?`<span class="pill pill-blue" style="font-size:10px">✓ SFTP</span> <span style="color:var(--muted);font-family:monospace;font-size:10px">${esc(e.sftp_path)}</span>`:''}
+      </div>
+    </div>`).join('');
+}
+
+function clearCCLog(ne){
+  if(ne==='sgw'){sgwLog=[];renderCCLog('sgw');}
+  else{pgwLog=[];renderCCLog('pgw');}
+}
+
+/* Helpers */
+function esc(s){if(s==null)return'—';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function tryJson(v){try{return JSON.parse(v);}catch{return{};}}
+function fmtTs(ts){if(!ts)return'—';try{return new Date(ts).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',hour12:false});}catch{return ts;}}
+function iCol(t){return!t?'pill-blue':t==='IRI_ONLY'?'pill-yellow':t==='CC_ONLY'?'pill-orange':'pill-blue';}
+function eCol(t){const m={ATTACH:'pill-green',DETACH:'pill-red',BEARER_ESTABLISH:'pill-blue',
+  BEARER_RELEASE:'pill-orange',LOCATION_UPDATE:'pill-yellow',TAU:'pill-yellow',HANDOVER:'pill-orange',SMS:'pill-gray'};return m[t]||'pill-gray';}
+
+/* Init */
+setOperator();
+checkServer();
+fetchAllX1();
+x1PollTimer=setInterval(fetchAllX1,5000);
+</script>
 </body>
 </html>

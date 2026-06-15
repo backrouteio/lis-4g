@@ -11,39 +11,48 @@
 
 **Authorised by:** Home Secretary (Central) — Ministry of Home Affairs (MHA), or State Home Secretary  
 **Indian Operators:** Airtel (404-10), Jio (405-854), Vi/Vodafone-Idea (404-20), BSNL (404-07)  
-**Standards:** ETSI TS 103 221, 3GPP TS 33.107/33.108, DoT LI guidelines
+**Standards:** ETSI TS 103 221, ETSI TS 103 120, 3GPP TS 33.107/33.108, DoT LI guidelines
 
-## Architecture
+---
+
+## Three-Machine Architecture (v3.0)
 
 ```
-LEA Machine          LIS Server (76.13.211.64)    NE Simulator Machine
-─────────────        ──────────────────────────   ───────────────────────
-hi1_lea.html  ──HI1→ run_standalone.py :8001  ←X2/X3── ne_simulator.html
-              ←HI2──  (ADMF + IRI-MF + CC-MF)
-              ←HI3──  PostgreSQL / SQLite
+┌─────────────────┐   HI1 SOAP/XML    ┌─────────────────────────────┐    X2 ASN.1 BER     ┌────────────────────┐
+│  LEA Machine    │ ─────────────────▶ │  LIS Server                 │ ◀────────────────── │  NE Simulator      │
+│  hi1_lea.html   │                    │  run_standalone.py :8001    │                     │  ne_simulator.html │
+│  lea_sftp_server│ ◀── HI2 HTTPS ─── │  ADMF + IRI-MF + CC-MF     │ ◀── X3 CC JSON ─── │  MME / SGW / PGW   │
+│  :2222 (SFTP)   │ ◀── HI3 SFTP ──── │  PostgreSQL / SQLite        │                     │                    │
+│  :8443 (HI2)    │                    │  ASN.1 BER decoder          │ ──── X1 task ─────▶ │  poll /x1/tasks    │
+│  :8080 (portal) │                    │  SFTP client (paramiko)     │                     │                    │
+└─────────────────┘                    └─────────────────────────────┘                     └────────────────────┘
 ```
 
-## Ports to Open (Firewall)
+## Interface Summary
 
-| Port | Protocol | From       | To         | Purpose              |
-|------|----------|------------|------------|----------------------|
-| 8001 | TCP      | LEA, NE    | LIS Server | HI1, X1, X2, X3     |
-| 8443 | TCP      | LIS Server | LEA        | HI2/HI3 delivery    |
+| Interface | Direction | Protocol | Description |
+|-----------|-----------|----------|-------------|
+| HI1 | LEA → LIS | SOAP/XML HTTPS | Warrant activation (ETSI TS 103 120) |
+| HI2 | LIS → LEA | HTTPS POST | IRI delivery (ASN.1 BER, 3GPP TS 33.108) |
+| HI3 | LIS → LEA | SFTP (port 2222) | CC content delivery (GTP-U packets) |
+| X1 | LIS → NE | REST (poll) | NE provisioning (ADMF → MME/SGW/PGW) |
+| X2 | NE → LIS | REST POST | IRI events (ASN.1 BER encoded) |
+| X3 | NE → LIS | REST POST | CC packets (user-plane mirrored data) |
 
-> In standalone mode, all LIS functions (HI1, X2, X3) run on **port 8001 only**.
+## Port Table
 
-## Quick Start — Local (Windows)
+| Port | Protocol | Machine | Purpose |
+|------|----------|---------|---------|
+| 8001 | TCP | LIS Server | HI1, X1, X2, X3 (all LIS APIs) |
+| 8080 | TCP | LEA, NE | Portal servers (hi1_lea.html, ne_simulator.html) |
+| 8443 | TCP | LEA | HI2 IRI receiver (pushed by LIS) |
+| 2222 | TCP | LEA | SFTP — HI3 CC content receiver |
 
-```bash
-cd F:\claude\LIS
-pip install fastapi uvicorn
-python run_standalone.py
-# Open: http://localhost:8001
-```
+---
 
-## Ubuntu Server Deployment
+## Machine 1: LIS Server (76.13.211.64)
 
-### Step 1 — Install Python & dependencies
+### Install
 
 ```bash
 sudo apt-get update
@@ -52,45 +61,48 @@ sudo apt-get install -y python3 python3-pip git
 git clone https://github.com/backrouteio/lis-4g.git
 cd lis-4g
 
-pip3 install fastapi uvicorn psycopg2-binary --break-system-packages --ignore-installed
+pip3 install fastapi uvicorn psycopg2-binary paramiko pyasn1 httpx cryptography \
+    --break-system-packages --ignore-installed
 ```
 
-### Step 2 — Set up PostgreSQL (optional but recommended)
+### Run (SQLite — simple)
 
-```bash
-chmod +x setup_postgres.sh
-sudo ./setup_postgres.sh
-```
-
-Edit `setup_postgres.sh` first to change `DB_PASS` to something secure.
-
-### Step 3 — Run LIS
-
-**With SQLite (simpler, no DB setup needed):**
 ```bash
 python3 run_standalone.py --host 0.0.0.0 --port 8001
 ```
 
-**With PostgreSQL (persistent, survives restarts):**
+### Run (PostgreSQL)
+
 ```bash
+sudo ./setup_postgres.sh
 python3 run_standalone.py \
-  --host 0.0.0.0 \
-  --port 8001 \
+  --host 0.0.0.0 --port 8001 \
   --db-url "postgresql://lis:LisSecure2024!@localhost/lisdb"
 ```
 
-### Step 4 — Run as a systemd service (auto-start on reboot)
+### Run with SFTP (HI3 delivery to LEA)
+
+```bash
+python3 run_standalone.py \
+  --host 0.0.0.0 --port 8001 \
+  --sftp-host <LEA-IP> --sftp-port 2222 --sftp-user lea --sftp-pass yourpassword
+```
+
+Or configure SFTP at runtime via LEA portal → Config bar.
+
+### systemd Service
 
 ```bash
 sudo tee /etc/systemd/system/lis.service <<EOF
 [Unit]
-Description=LIS Standalone Server
+Description=LIS Standalone Server — India 4G LTE
 After=network.target postgresql.service
 
 [Service]
 User=root
 WorkingDirectory=/root/lis-4g
-ExecStart=python3 run_standalone.py --host 0.0.0.0 --port 8001 --db-url postgresql://lis:LisSecure2024!@localhost/lisdb
+ExecStart=python3 run_standalone.py --host 0.0.0.0 --port 8001 \
+  --db-url postgresql://lis:LisSecure2024!@localhost/lisdb
 Restart=always
 RestartSec=5
 
@@ -104,35 +116,133 @@ sudo systemctl start lis
 sudo systemctl status lis
 ```
 
-## Portal Configuration (Multi-Machine)
+---
 
-### LEA Machine — hi1_lea.html
-Click ⚙️ Config and set:
-- **LIS IP**: 76.13.211.64
-- **LIS Port**: 8001
-- **LEA IP**: (LEA machine IP)
-- **LEA Port**: 8443
+## Machine 2: LEA (Law Enforcement Agency)
 
-### NE Simulator Machine — ne_simulator.html
-Click ⚙️ Config and set:
-- **LIS IP**: 76.13.211.64
-- **LIS Port**: 8001
-- **NE (local) IP**: (NE machine IP)
+### Install
 
-## IRI Event Flow (X1/X2 in Real 4G)
-
-```
-HI1: LEA activates warrant → ADMF
-       ↓ X1 (to MME if IRI_ONLY or IRI_AND_CC)
-       ↓ X1 (to SGW/PGW if CC_ONLY or IRI_AND_CC)
-MME generates X2 IRI events → IRI-MF → HI2 → LEA
-SGW/PGW mirror packets via X3 → CC-MF → HI3 → LEA
+```bash
+pip3 install paramiko --break-system-packages
+# Copy portal directory from GitHub:
+git clone https://github.com/backrouteio/lis-4g.git
+cd lis-4g
+python3 lea_sftp_server.py
 ```
 
-## Intercept Types & X1 Routing
+### What it runs
 
-| Intercept Type | MME (X1) | S-GW (X1) | P-GW (X1) |
-|----------------|----------|-----------|-----------|
-| IRI_ONLY       | ✓        | ✗         | ✗         |
-| CC_ONLY        | ✗        | ✓         | ✓         |
-| IRI_AND_CC     | ✓        | ✓         | ✓         |
+```
+SFTP server   :2222  ← receives HI3 CC files from LIS
+HI2 receiver  :8443  ← receives HI2 IRI events from LIS
+Portal server :8080  → serves hi1_lea.html
+```
+
+### Open the LEA portal
+
+```
+http://<LEA-IP>:8080/
+```
+
+Configure in the portal:
+- **LIS IP**: 76.13.211.64
+- **LIS Port**: 8001
+- **SFTP Host**: (LEA machine IP)
+- **SFTP Port**: 2222
+- **SFTP User/Pass**: lea / yourpassword
+
+---
+
+## Machine 3: NE Simulator
+
+### Run portal
+
+```bash
+# Just open ne_simulator.html in a browser, or serve it:
+python3 -m http.server 8080 --directory portal/
+```
+
+### Open the NE simulator
+
+```
+http://<NE-IP>:8080/ne_simulator.html
+```
+
+Configure:
+- **LIS IP**: 76.13.211.64
+- **LIS Port**: 8001
+- **Operator**: Airtel / Jio / Vi / BSNL
+- **X2 Encoding**: ASN.1 BER (recommended)
+
+---
+
+## X1 Routing (Intercept Type → NE)
+
+| Intercept Type | MME (X1) | S-GW (X1) | P-GW (X1) | IRI | CC |
+|----------------|----------|-----------|-----------|-----|----|
+| IRI_ONLY       | ✓        | ✗         | ✗         | ✓   | ✗  |
+| CC_ONLY        | ✗        | ✓         | ✓         | ✗   | ✓  |
+| IRI_AND_CC     | ✓        | ✓         | ✓         | ✓   | ✓  |
+
+## IRI Event Flow
+
+```
+LEA activates warrant via HI1 SOAP → ADMF
+  ↓ X1 (to MME if IRI enabled)
+  ↓ X1 (to SGW/PGW if CC enabled)
+
+MME detects ATTACH/DETACH/TAU/HO/etc
+  → ASN.1 BER encode (IRIParameters, 3GPP TS 33.108)
+  → POST /x2/iri to LIS (IRI-MF)
+  ← LIS decodes ASN.1, stores in DB
+  → LIS pushes HI2 to LEA HTTPS endpoint
+  → LEA portal displays decoded IRI events
+
+SGW/PGW mirror user-plane packets (GTP-U)
+  → POST /x3/cc to LIS (CC-MF)
+  → LIS delivers via SFTP to LEA :2222
+  → LEA SFTP server writes to cc_received/
+  → LEA portal displays CC packet log
+```
+
+## ASN.1 IRI Encoding (3GPP TS 33.108)
+
+```
+IRIParameters ::= SEQUENCE {
+  iriVersion      [0] INTEGER,
+  timeStamp       [1] GeneralizedTime,
+  liID            [2] UTF8String,
+  sequenceNumber  [3] INTEGER,
+  iriType         [4] ENUMERATED {
+    attach(0), detach(1), bearerEstablish(2), bearerRelease(3),
+    locationUpdate(4), sms(5), tau(6), handover(7)
+  },
+  targetIMSI      [5] OCTET STRING OPTIONAL,
+  targetMSISDN    [6] OCTET STRING OPTIONAL,
+  cellID          [7] OCTET STRING OPTIONAL,
+  tai             [8] OCTET STRING OPTIONAL,
+  ueIPAddress     [9] OCTET STRING OPTIONAL,
+  apn             [10] UTF8String OPTIONAL,
+  bearerID        [11] INTEGER OPTIONAL,
+  qci             [12] INTEGER OPTIONAL
+}
+```
+
+## Update Procedure
+
+### On Windows (developer machine)
+
+```bash
+cd F:\claude\LIS
+git add -A
+git commit -m "Update: <description>"
+git push origin main
+```
+
+### On Ubuntu LIS Server
+
+```bash
+cd /root/lis-4g
+git pull origin main
+sudo systemctl restart lis
+```

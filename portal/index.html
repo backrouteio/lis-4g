@@ -1,738 +1,457 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>LIS Portal — India 4G Lawful Interception (DoT / MHA)</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body { background: #0f172a; }
-    .card { background: #1e293b; border: 1px solid #334155; }
-    .input-field { background: #0f172a; border: 1px solid #475569; color: #e2e8f0; }
-    .input-field:focus { outline: none; border-color: #3b82f6; }
-    .tab-active   { border-bottom: 2px solid #3b82f6; color: #3b82f6; }
-    .tab-inactive { color: #94a3b8; border-bottom: 2px solid transparent; }
-    .badge-active   { background:#15803d22; color:#4ade80; border:1px solid #166534; }
-    .badge-inactive { background:#7f1d1d22; color:#f87171; border:1px solid #7f1d1d; }
-    .badge-iri    { background:#1e3a5f; color:#93c5fd; border:1px solid #1d4ed8; }
-    .badge-cc     { background:#3b1f5e; color:#c4b5fd; border:1px solid #6d28d9; }
-    .badge-both   { background:#1c3a2e; color:#6ee7b7; border:1px solid #047857; }
-    .badge-act    { background:#14532d33; color:#4ade80; border:1px solid #166534; }
-    .badge-deact  { background:#7f1d1d33; color:#f87171; border:1px solid #991b1b; }
-    .ne-badge     { background:#292524; color:#d6d3d1; border:1px solid #44403c; }
-    .log-entry    { border-left: 3px solid; padding: 8px 10px; border-radius: 4px; background:#0f172a; }
-    .log-iri  { border-color:#3b82f6; }
-    .log-cc   { border-color:#a855f7; }
-    .log-x1   { border-color:#f97316; }
-    ::-webkit-scrollbar { width:5px; }
-    ::-webkit-scrollbar-track { background:#1e293b; }
-    ::-webkit-scrollbar-thumb { background:#475569; border-radius:3px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LIS Dashboard — India 4G LTE | DoT / MHA Authorised</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #e6edf3; --muted: #8b949e; --accent: #58a6ff;
+    --green: #3fb950; --red: #f85149; --yellow: #d29922; --orange: #db6d28;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', monospace; font-size: 13px; }
+  header {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 12px 20px; display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-icon { width: 32px; height: 32px; background: linear-gradient(135deg, #1f6feb, #388bfd); border-radius: 6px;
+    display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .logo-text h1 { font-size: 15px; font-weight: 600; }
+  .logo-text p  { font-size: 11px; color: var(--muted); }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  .badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-green { background: rgba(63,185,80,.15); color: var(--green); border: 1px solid rgba(63,185,80,.3); }
+  .badge-red   { background: rgba(248,81,73,.15);  color: var(--red);   border: 1px solid rgba(248,81,73,.3); }
+  .sys-time { color: var(--muted); font-size: 11px; font-family: monospace; }
+  .config-bar {
+    background: #0e1929; border-bottom: 1px solid var(--border);
+    padding: 8px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  .config-bar label { color: var(--muted); font-size: 11px; white-space: nowrap; }
+  .config-bar input {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 4px 8px; border-radius: 4px; font-size: 12px; width: 140px;
+  }
+  .config-bar input:focus { outline: none; border-color: var(--accent); }
+  .btn-sm {
+    padding: 4px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text); transition: all .2s;
+  }
+  .btn-sm:hover { background: #1f2937; border-color: var(--accent); color: var(--accent); }
+  .btn-primary { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+  .btn-primary:hover { background: #388bfd; border-color: #388bfd; }
+  .btn-danger  { background: rgba(248,81,73,.15); border-color: var(--red); color: var(--red); }
+  .stats-row {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px; padding: 16px 20px;
+  }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+  .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+  .stat-value { font-size: 24px; font-weight: 700; }
+  .stat-sub   { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .stat-card.green { border-color: rgba(63,185,80,.3); }   .stat-card.green .stat-value { color: var(--green); }
+  .stat-card.blue  { border-color: rgba(88,166,255,.3); }  .stat-card.blue  .stat-value { color: var(--accent); }
+  .stat-card.yellow{ border-color: rgba(210,153,34,.3); }  .stat-card.yellow.stat-value { color: var(--yellow); }
+  .stat-card.orange{ border-color: rgba(219,109,40,.3); }  .stat-card.orange .stat-value { color: var(--orange); }
+  .main { padding: 0 20px 20px; display: flex; flex-direction: column; gap: 16px; }
+  .section { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .section-head {
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(255,255,255,.02);
+  }
+  .section-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
+  .section-actions { display: flex; gap: 8px; align-items: center; }
+  .pulse { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:.4; } }
+  .count-badge { background: rgba(88,166,255,.15); color: var(--accent); border: 1px solid rgba(88,166,255,.3); padding: 1px 8px; border-radius: 20px; font-size: 11px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
+       padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border);
+       background: rgba(255,255,255,.02); white-space: nowrap; }
+  td { padding: 8px 12px; border-bottom: 1px solid rgba(48,54,61,.5); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,.02); }
+  .mono { font-family: monospace; font-size: 11px; }
+  .empty-row td { color: var(--muted); text-align: center; padding: 24px; font-style: italic; }
+  .pill { padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; display: inline-block; }
+  .pill-green  { background: rgba(63,185,80,.15);  color: var(--green); }
+  .pill-red    { background: rgba(248,81,73,.15);  color: var(--red); }
+  .pill-blue   { background: rgba(88,166,255,.15); color: var(--accent); }
+  .pill-yellow { background: rgba(210,153,34,.15); color: var(--yellow); }
+  .pill-orange { background: rgba(219,109,40,.15); color: var(--orange); }
+  .pill-gray   { background: rgba(139,148,158,.15);color: var(--muted); }
+  .log-col-hdr { display: grid; gap: 0; padding: 6px 16px; border-bottom: 1px solid var(--border);
+    font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .log-empty { padding: 24px; text-align: center; color: var(--muted); font-style: italic; }
+  .log-row { display: grid; gap: 8px; padding: 7px 16px;
+    border-bottom: 1px solid rgba(48,54,61,.4); font-size: 12px; align-items: start; }
+  .log-row:hover { background: rgba(255,255,255,.02); }
+  .x1-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; padding: 12px 16px; }
+  .x1-card { background: rgba(255,255,255,.03); border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
+  .x1-card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .x1-ne-name { font-weight: 600; font-size: 13px; }
+  .x1-task-row { display: flex; justify-content: space-between; align-items: center;
+    padding: 5px 8px; background: rgba(0,0,0,.2); border-radius: 4px; margin-bottom: 3px; }
+  .health-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; padding: 16px; }
+  .health-item .health-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .health-item .health-val   { font-size: 13px; font-weight: 600; font-family: monospace; }
+  .spin { animation: spin 1s linear infinite; display: inline-block; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .refresh-ind { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+</style>
 </head>
-<body class="text-slate-200 min-h-screen">
+<body>
 
-  <!-- Header -->
-  <div class="border-b border-slate-700 px-6 py-3 flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <div class="w-8 h-8 rounded bg-blue-600 flex items-center justify-center text-sm font-bold">LI</div>
-      <div>
-        <div class="font-semibold text-white text-sm">LIS Portal — India 4G LTE</div>
-        <div class="text-xs text-slate-400">Lawful Interception — HI1 / X1 / X2 / X3 &nbsp;|&nbsp; DoT / MHA Authorised</div>
-      </div>
-    </div>
-    <div class="flex items-center gap-4 text-xs">
-      <div id="svc-admf"  class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-slate-500"></div>ADMF</div>
-      <div id="svc-irimf" class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-slate-500"></div>IRI-MF</div>
-      <div id="svc-ccmf"  class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-slate-500"></div>CC-MF</div>
-      <div id="svc-ne"    class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-slate-500"></div>NE-Sim</div>
-      <a href="hi1_lea.html"      class="text-blue-400 hover:text-blue-300 border border-blue-800 rounded px-2 py-1 text-xs">LEA Portal</a>
-      <a href="ne_simulator.html" class="text-purple-400 hover:text-purple-300 border border-purple-800 rounded px-2 py-1 text-xs">NE Simulator</a>
-      <button onclick="pollHealth()" class="text-slate-400 hover:text-white text-xs">↻</button>
+<!-- ══ HEADER ══ -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🛡️</div>
+    <div class="logo-text">
+      <h1>LIS Monitoring Dashboard</h1>
+      <p>Lawful Interception System — India 4G LTE &nbsp;|&nbsp; DoT / MHA Authorised</p>
     </div>
   </div>
-
-  <!-- Tabs -->
-  <div class="border-b border-slate-700 px-6 flex gap-1 text-sm font-medium">
-    <button onclick="showTab('hi1')" id="tab-hi1" class="py-3 px-3 tab-active">HI1 — Warrants</button>
-    <button onclick="showTab('x1')"  id="tab-x1"  class="py-3 px-3 tab-inactive">X1 — NE Provisioning</button>
-    <button onclick="showTab('x2')"  id="tab-x2"  class="py-3 px-3 tab-inactive">X2 — IRI Simulator</button>
-    <button onclick="showTab('x3')"  id="tab-x3"  class="py-3 px-3 tab-inactive">X3 — CC Simulator</button>
-    <button onclick="showTab('log')" id="tab-log" class="py-3 px-3 tab-inactive">Event Log</button>
+  <div class="header-right">
+    <span id="srvStatus" class="badge badge-red">● Disconnected</span>
+    <span class="sys-time" id="sysTime"></span>
   </div>
+</header>
 
-  <!-- ═══════════ TAB: HI1 ═══════════ -->
-  <div id="pane-hi1" class="p-5 grid grid-cols-3 gap-5">
-    <div class="col-span-1 card rounded-xl p-5 space-y-3">
-      <div class="font-semibold text-white text-sm flex items-center justify-between">
-        Activate Warrant <span class="text-xs text-slate-500 font-normal">HI1 → ADMF</span>
-      </div>
-      <div>
-        <label class="text-xs text-slate-400 mb-1 block">LIID *</label>
-        <input id="f-liid" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="LIID-2026-001"/>
-      </div>
-      <div>
-        <label class="text-xs text-slate-400 mb-1 block">LEA ID *</label>
-        <input id="f-leaid" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="IB-001 / CBI-001 / NIA-001"/>
-      </div>
-      <div class="grid grid-cols-2 gap-2">
-        <div>
-          <label class="text-xs text-slate-400 mb-1 block">ID Type</label>
-          <select id="f-idtype" class="input-field w-full rounded-lg px-3 py-2 text-sm">
-            <option>MSISDN</option><option>IMSI</option><option>IMEI</option><option>IP_ADDRESS</option>
-          </select>
-        </div>
-        <div>
-          <label class="text-xs text-slate-400 mb-1 block">Target Value *</label>
-          <input id="f-target" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="+919876543210"/>
-        </div>
-      </div>
-      <div>
-        <label class="text-xs text-slate-400 mb-1 block">Intercept Type</label>
-        <select id="f-itype" class="input-field w-full rounded-lg px-3 py-2 text-sm">
-          <option value="IRI_AND_CC">IRI + CC (Full)</option>
-          <option value="IRI_ONLY">IRI Only</option>
-          <option value="CC_ONLY">CC Only</option>
-        </select>
-      </div>
-      <div class="grid grid-cols-2 gap-2">
-        <div>
-          <label class="text-xs text-slate-400 mb-1 block">Valid From</label>
-          <input id="f-vfrom" type="datetime-local" class="input-field w-full rounded-lg px-3 py-2 text-sm"/>
-        </div>
-        <div>
-          <label class="text-xs text-slate-400 mb-1 block">Valid Until</label>
-          <input id="f-vuntil" type="datetime-local" class="input-field w-full rounded-lg px-3 py-2 text-sm"/>
-        </div>
-      </div>
-      <div>
-        <label class="text-xs text-slate-400 mb-1 block">LEA Delivery Address</label>
-        <input id="f-delivery" class="input-field w-full rounded-lg px-3 py-2 text-sm" value="127.0.0.1:8443"/>
-      </div>
-      <button onclick="activateWarrant()" class="w-full bg-blue-600 hover:bg-blue-500 text-white rounded-lg py-2 text-sm font-semibold transition">
-        Activate Warrant →
-      </button>
-      <div id="activate-msg" class="text-xs rounded-lg p-2 hidden"></div>
+<!-- ══ CONFIG BAR ══ -->
+<div class="config-bar">
+  <label>⚙️ LIS Server:</label>
+  <input id="cfgIp"   value="76.13.211.64"  placeholder="LIS IP">
+  <input id="cfgPort" value="8001" placeholder="Port" style="width:70px">
+  <button class="btn-sm btn-primary" onclick="saveConfig()">Connect</button>
+  <span style="color:var(--border)">|</span>
+  <label>Auto-refresh:</label>
+  <select id="cfgRefresh" onchange="setRefresh()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:4px;font-size:12px;">
+    <option value="5000">5 sec</option><option value="10000">10 sec</option>
+    <option value="30000">30 sec</option><option value="0">Off</option>
+  </select>
+  <span class="refresh-ind" id="refreshInd"></span>
+</div>
 
-      <div class="border-t border-slate-700 pt-3">
-        <div class="text-xs text-slate-400 mb-2">Quick Deactivate</div>
-        <div class="flex gap-2">
-          <input id="d-liid"  class="input-field rounded-lg px-2 py-1.5 text-xs flex-1" placeholder="LIID"/>
-          <input id="d-leaid" class="input-field rounded-lg px-2 py-1.5 text-xs w-28" placeholder="LEA ID"/>
-          <button onclick="deactivateWarrant()" class="bg-red-700 hover:bg-red-600 text-white rounded-lg px-3 py-1.5 text-xs font-semibold">Off</button>
-        </div>
-        <div id="deactivate-msg" class="text-xs mt-1"></div>
+<!-- ══ STATS ══ -->
+<div class="stats-row">
+  <div class="stat-card green">
+    <div class="stat-label">Active Warrants</div>
+    <div class="stat-value" id="statWarrants">—</div>
+    <div class="stat-sub">Provisioned &amp; running</div>
+  </div>
+  <div class="stat-card blue">
+    <div class="stat-label">IRI Events (X2→HI2)</div>
+    <div class="stat-value" id="statIRI">—</div>
+    <div class="stat-sub">Received from NEs</div>
+  </div>
+  <div class="stat-card" style="border-color:rgba(219,109,40,.3)">
+    <div class="stat-label">CC Packets (X3→HI3)</div>
+    <div class="stat-value" id="statCC" style="color:var(--orange)">—</div>
+    <div class="stat-sub">Intercepted content</div>
+  </div>
+  <div class="stat-card" style="border-color:rgba(210,153,34,.3)">
+    <div class="stat-label">X1 Tasks Queued</div>
+    <div class="stat-value" id="statX1" style="color:var(--yellow)">—</div>
+    <div class="stat-sub">Pending NE provisioning</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Server Uptime</div>
+    <div class="stat-value" id="statUptime" style="font-size:15px;padding-top:5px">—</div>
+    <div class="stat-sub" id="statVersion">—</div>
+  </div>
+</div>
+
+<!-- ══ MAIN ══ -->
+<div class="main">
+
+  <!-- Active Warrants -->
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title">📋 Active Warrants <span class="count-badge" id="warrantCount">0</span></div>
+      <div class="section-actions">
+        <span class="pulse"></span><span style="font-size:11px;color:var(--muted)">Live</span>
+        <button class="btn-sm" onclick="fetchWarrants()">↻ Refresh</button>
       </div>
     </div>
-
-    <div class="col-span-2 card rounded-xl p-5">
-      <div class="flex items-center justify-between mb-4">
-        <div class="font-semibold text-white text-sm">Active Warrants</div>
-        <button onclick="loadWarrants()" class="text-xs text-blue-400 hover:text-blue-300">↻ Refresh</button>
-      </div>
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="text-xs text-slate-400 border-b border-slate-700">
-            <th class="text-left pb-2 pr-3">LIID</th>
-            <th class="text-left pb-2 pr-3">LEA</th>
-            <th class="text-left pb-2 pr-3">Target</th>
-            <th class="text-left pb-2 pr-3">Type</th>
-            <th class="text-left pb-2 pr-3">Valid Until</th>
-            <th class="text-left pb-2 pr-3">Status</th>
-            <th class="pb-2"></th>
-          </tr>
-        </thead>
-        <tbody id="warrant-table">
-          <tr><td colspan="7" class="text-slate-500 text-xs py-6 text-center">Loading...</td></tr>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th>LI-ID</th><th>LEA Agency</th><th>Target MSISDN</th><th>IMSI</th>
+          <th>Intercept</th><th>Legal Basis</th><th>Auth Ref</th><th>Valid Until</th><th>Status</th>
+        </tr></thead>
+        <tbody id="warrantsBody">
+          <tr class="empty-row"><td colspan="9">Loading…</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 
-  <!-- ═══════════ TAB: X1 ═══════════ -->
-  <div id="pane-x1" class="p-5 hidden">
-    <div class="grid grid-cols-3 gap-4 mb-5">
-      <div class="card rounded-xl p-4">
-        <div class="text-xs text-slate-400 mb-1">MME <span class="text-slate-500">— IRI events</span></div>
-        <div class="text-2xl font-bold text-orange-400" id="ne-mme-count">—</div>
-        <div class="text-xs text-slate-500">X1 tasks received</div>
-      </div>
-      <div class="card rounded-xl p-4">
-        <div class="text-xs text-slate-400 mb-1">S-GW <span class="text-slate-500">— User plane CC</span></div>
-        <div class="text-2xl font-bold text-orange-400" id="ne-sgw-count">—</div>
-        <div class="text-xs text-slate-500">X1 tasks received</div>
-      </div>
-      <div class="card rounded-xl p-4">
-        <div class="text-xs text-slate-400 mb-1">P-GW <span class="text-slate-500">— User plane CC</span></div>
-        <div class="text-2xl font-bold text-orange-400" id="ne-pgw-count">—</div>
-        <div class="text-xs text-slate-500">X1 tasks received</div>
-      </div>
+  <!-- X1 Provisioning -->
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title">📡 X1 Provisioning Tasks (ADMF→NEs) <span class="count-badge" id="x1TotalCount">0</span></div>
+      <div class="section-actions"><button class="btn-sm" onclick="fetchX1()">↻ Refresh</button></div>
     </div>
-
-    <div class="card rounded-xl p-5">
-      <div class="flex items-center justify-between mb-4">
-        <div class="font-semibold text-white text-sm">X1 Provisioning Tasks — ADMF → Network Elements</div>
-        <div class="flex gap-3">
-          <select id="x1-filter-ne" onchange="loadX1Tasks()" class="input-field rounded-lg px-2 py-1 text-xs">
-            <option value="ALL">All NEs</option>
-            <option value="MME">MME</option>
-            <option value="SGW">SGW</option>
-            <option value="PGW">PGW</option>
-          </select>
-          <button onclick="loadX1Tasks()" class="text-xs text-blue-400 hover:text-blue-300">↻ Refresh</button>
-        </div>
-      </div>
-      <div class="overflow-auto max-h-96">
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="text-xs text-slate-400 border-b border-slate-700">
-              <th class="text-left pb-2 pr-3">NE</th>
-              <th class="text-left pb-2 pr-3">Task ID</th>
-              <th class="text-left pb-2 pr-3">LIID</th>
-              <th class="text-left pb-2 pr-3">Target</th>
-              <th class="text-left pb-2 pr-3">ID Type</th>
-              <th class="text-left pb-2 pr-3">Action</th>
-              <th class="text-left pb-2 pr-3">Intercept Type</th>
-              <th class="text-left pb-2">Received At</th>
-            </tr>
-          </thead>
-          <tbody id="x1-table">
-            <tr><td colspan="8" class="text-slate-500 text-xs py-6 text-center">Activate a warrant to see X1 provisioning tasks.</td></tr>
-          </tbody>
-        </table>
-      </div>
+    <div class="x1-grid" id="x1Grid">
+      <div style="padding:24px;color:var(--muted);font-style:italic">Loading X1 tasks…</div>
     </div>
   </div>
 
-  <!-- ═══════════ TAB: X2 IRI ═══════════ -->
-  <div id="pane-x2" class="p-5 hidden">
-    <div class="grid grid-cols-2 gap-5">
-      <div class="card rounded-xl p-5 space-y-3">
-        <div class="font-semibold text-white text-sm">Send X2 IRI Event <span class="text-xs text-slate-500 font-normal">NE → IRI-MF</span></div>
-        <div class="bg-slate-800 rounded-lg p-3 text-xs text-slate-400">
-          IRI events are triggered by the MME on: UE Attach, Detach, Tracking Area Update, Bearer setup/release, SMS.
-        </div>
-        <div>
-          <label class="text-xs text-slate-400 mb-1 block">LIID (must be active)</label>
-          <input id="x2-liid" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="LIID-2026-001"/>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">Event Type</label>
-            <select id="x2-event" class="input-field w-full rounded-lg px-3 py-2 text-sm">
-              <option>ATTACH</option>
-              <option>DETACH</option>
-              <option>BEARER_ESTABLISH</option>
-              <option>BEARER_RELEASE</option>
-              <option>LOCATION_UPDATE</option>
-              <option>SMS</option>
-            </select>
-          </div>
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">IMSI</label>
-            <input id="x2-imsi" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="234300000000001"/>
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">MSISDN</label>
-            <input id="x2-msisdn" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="447700900123"/>
-          </div>
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">IMEI</label>
-            <input id="x2-imei" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="356938035643809"/>
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">Cell ID (ECGI)</label>
-            <input id="x2-cell" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="234-30-1234-56789"/>
-          </div>
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">TAI</label>
-            <input id="x2-tai" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="234-30-1234"/>
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">UE IP Address</label>
-            <input id="x2-ueip" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="10.0.0.1"/>
-          </div>
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">APN</label>
-            <input id="x2-apn" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="internet"/>
-          </div>
-        </div>
-        <button onclick="sendX2Event()" class="w-full bg-red-700 hover:bg-red-600 text-white rounded-lg py-2 text-sm font-semibold transition">
-          Send IRI Event via X2 →
-        </button>
-        <div id="x2-msg" class="text-xs rounded-lg p-2 hidden"></div>
-
-        <!-- Quick scenario buttons -->
-        <div class="border-t border-slate-700 pt-3">
-          <div class="text-xs text-slate-400 mb-2">Quick Scenarios</div>
-          <div class="flex flex-wrap gap-2">
-            <button onclick="fillX2('ATTACH')"          class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">📶 Attach</button>
-            <button onclick="fillX2('BEARER_ESTABLISH')" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">📡 Bearer Up</button>
-            <button onclick="fillX2('LOCATION_UPDATE')" class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">📍 Location</button>
-            <button onclick="fillX2('SMS')"              class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">💬 SMS</button>
-            <button onclick="fillX2('BEARER_RELEASE')"  class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">📴 Bearer Dn</button>
-            <button onclick="fillX2('DETACH')"          class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">❌ Detach</button>
-          </div>
-        </div>
+  <!-- IRI Event Log -->
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title">📶 IRI Event Log — X2 / HI2 <span class="count-badge" id="iriCount">0</span></div>
+      <div class="section-actions">
+        <label style="font-size:11px;color:var(--muted)">Filter:</label>
+        <select id="iriFilter" onchange="renderIRI()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-size:11px;">
+          <option value="">All</option>
+          <option>ATTACH</option><option>DETACH</option><option>BEARER_ESTABLISH</option>
+          <option>BEARER_RELEASE</option><option>LOCATION_UPDATE</option>
+          <option>TAU</option><option>HANDOVER</option><option>SMS</option>
+        </select>
+        <button class="btn-sm" onclick="fetchIRI()">↻ Refresh</button>
+        <button class="btn-sm btn-danger" onclick="clearIRILocal()">✕ Clear</button>
       </div>
-
-      <div class="card rounded-xl p-5">
-        <div class="flex items-center justify-between mb-3">
-          <div class="font-semibold text-white text-sm">IRI Events Log</div>
-          <div class="flex gap-3">
-            <span id="x2-count" class="text-xs text-slate-400">0 events</span>
-            <button onclick="clearLog('x2-log','x2-count')" class="text-xs text-slate-400 hover:text-slate-300">Clear</button>
-          </div>
-        </div>
-        <div id="x2-log" class="space-y-2 overflow-auto max-h-[500px] text-xs font-mono">
-          <div class="text-slate-500 text-center py-8">No IRI events yet — send one using the form.</div>
-        </div>
-      </div>
+    </div>
+    <div class="log-col-hdr" style="grid-template-columns:150px 100px 80px 130px 1fr">
+      <span>Timestamp (IST)</span><span>Event Type</span><span>LI-ID</span><span>IMSI</span><span>Details / ASN.1</span>
+    </div>
+    <div id="iriLog" style="max-height:300px;overflow-y:auto">
+      <div class="log-empty">No IRI events yet</div>
     </div>
   </div>
 
-  <!-- ═══════════ TAB: X3 CC ═══════════ -->
-  <div id="pane-x3" class="p-5 hidden">
-    <div class="grid grid-cols-2 gap-5">
-      <div class="card rounded-xl p-5 space-y-3">
-        <div class="font-semibold text-white text-sm">Send X3 CC Packet <span class="text-xs text-slate-500 font-normal">S-GW/P-GW → CC-MF</span></div>
-        <div class="bg-slate-800 rounded-lg p-3 text-xs text-slate-400">
-          CC packets are mirrored by S-GW/P-GW from the UE's user-plane traffic (GTP-U payload) and delivered to CC-MF via X3.
-        </div>
-        <div>
-          <label class="text-xs text-slate-400 mb-1 block">LIID (must be active)</label>
-          <input id="x3-liid" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="LIID-2026-001"/>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">Direction</label>
-            <select id="x3-dir" class="input-field w-full rounded-lg px-3 py-2 text-sm">
-              <option value="UPLINK">UPLINK (UE → Internet)</option>
-              <option value="DOWNLINK">DOWNLINK (Internet → UE)</option>
-            </select>
-          </div>
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">Protocol</label>
-            <select id="x3-proto" class="input-field w-full rounded-lg px-3 py-2 text-sm" onchange="updateProtoNum()">
-              <option value="6">TCP (6)</option>
-              <option value="17">UDP (17)</option>
-              <option value="1">ICMP (1)</option>
-              <option value="132">SCTP (132)</option>
-            </select>
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">Source IP</label>
-            <input id="x3-srcip" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="10.0.0.1"/>
-          </div>
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">Source Port</label>
-            <input id="x3-srcport" type="number" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="54321"/>
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">Destination IP</label>
-            <input id="x3-dstip" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="8.8.8.8"/>
-          </div>
-          <div>
-            <label class="text-xs text-slate-400 mb-1 block">Destination Port</label>
-            <input id="x3-dstport" type="number" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="443"/>
-          </div>
-        </div>
-        <div>
-          <label class="text-xs text-slate-400 mb-1 block">Payload (hex or ASCII)</label>
-          <textarea id="x3-payload" rows="3" class="input-field w-full rounded-lg px-3 py-2 text-sm font-mono" placeholder="47455420/ HTTP/1.1..."></textarea>
-        </div>
-        <div>
-          <label class="text-xs text-slate-400 mb-1 block">Frame Length (bytes)</label>
-          <input id="x3-len" type="number" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="1500"/>
-        </div>
-        <button onclick="sendX3Packet()" class="w-full bg-purple-700 hover:bg-purple-600 text-white rounded-lg py-2 text-sm font-semibold transition">
-          Send CC Packet via X3 →
-        </button>
-        <div id="x3-msg" class="text-xs rounded-lg p-2 hidden"></div>
-
-        <!-- Quick scenario buttons -->
-        <div class="border-t border-slate-700 pt-3">
-          <div class="text-xs text-slate-400 mb-2">Quick Scenarios</div>
-          <div class="flex flex-wrap gap-2">
-            <button onclick="fillX3('https')"  class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">🌐 HTTPS</button>
-            <button onclick="fillX3('http')"   class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">📄 HTTP GET</button>
-            <button onclick="fillX3('dns')"    class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">🔍 DNS</button>
-            <button onclick="fillX3('voip')"   class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">📞 VoIP/RTP</button>
-            <button onclick="fillX3('ping')"   class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">🏓 ICMP Ping</button>
-            <button onclick="fillX3('down')"   class="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded">⬇ Downlink</button>
-          </div>
-        </div>
+  <!-- CC Packet Log -->
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title">📦 CC Packet Log — X3 / HI3 <span class="count-badge" id="ccCount">0</span></div>
+      <div class="section-actions">
+        <span class="pill pill-blue" style="font-size:10px">SFTP→LEA:2222</span>
+        <button class="btn-sm" onclick="fetchCC()">↻ Refresh</button>
+        <button class="btn-sm btn-danger" onclick="clearCCLocal()">✕ Clear</button>
       </div>
-
-      <div class="card rounded-xl p-5">
-        <div class="flex items-center justify-between mb-3">
-          <div class="font-semibold text-white text-sm">CC Packets Log</div>
-          <div class="flex gap-3">
-            <span id="x3-count" class="text-xs text-slate-400">0 packets</span>
-            <button onclick="clearLog('x3-log','x3-count')" class="text-xs text-slate-400 hover:text-slate-300">Clear</button>
-          </div>
-        </div>
-
-        <!-- Stats bar -->
-        <div class="grid grid-cols-3 gap-2 mb-3">
-          <div class="bg-slate-800 rounded p-2 text-center">
-            <div class="text-purple-400 font-bold text-sm" id="x3-uplink-count">0</div>
-            <div class="text-xs text-slate-500">Uplink</div>
-          </div>
-          <div class="bg-slate-800 rounded p-2 text-center">
-            <div class="text-blue-400 font-bold text-sm" id="x3-downlink-count">0</div>
-            <div class="text-xs text-slate-500">Downlink</div>
-          </div>
-          <div class="bg-slate-800 rounded p-2 text-center">
-            <div class="text-green-400 font-bold text-sm" id="x3-bytes-count">0</div>
-            <div class="text-xs text-slate-500">Bytes</div>
-          </div>
-        </div>
-
-        <div id="x3-log" class="space-y-2 overflow-auto max-h-[420px] text-xs font-mono">
-          <div class="text-slate-500 text-center py-8">No CC packets yet — send one using the form.</div>
-        </div>
-      </div>
+    </div>
+    <div class="log-col-hdr" style="grid-template-columns:150px 90px 80px 80px 80px 1fr">
+      <span>Timestamp (IST)</span><span>NE Source</span><span>LI-ID</span><span>Protocol</span><span>Size</span><span>SFTP Delivery</span>
+    </div>
+    <div id="ccLog" style="max-height:260px;overflow-y:auto">
+      <div class="log-empty">No CC packets yet</div>
     </div>
   </div>
 
-  <!-- ═══════════ TAB: Event Log ═══════════ -->
-  <div id="pane-log" class="p-5 hidden">
-    <div class="card rounded-xl p-5">
-      <div class="flex items-center justify-between mb-4">
-        <div class="font-semibold text-white text-sm">Combined Event Log — All Interfaces</div>
-        <div class="flex gap-3">
-          <select id="log-filter" onchange="filterLog()" class="input-field rounded-lg px-2 py-1 text-xs">
-            <option value="ALL">All</option>
-            <option value="X1">X1 only</option>
-            <option value="X2">X2/IRI only</option>
-            <option value="X3">X3/CC only</option>
-          </select>
-          <button onclick="refreshCombinedLog()" class="text-xs text-blue-400 hover:text-blue-300">↻ Refresh</button>
-        </div>
-      </div>
-      <div id="combined-log" class="space-y-2 overflow-auto max-h-[560px] text-xs font-mono">
-        <div class="text-slate-500 text-center py-8">No events yet.</div>
-      </div>
+  <!-- System Health -->
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title">💊 System Health</div>
+      <div class="section-actions"><button class="btn-sm" onclick="fetchHealth()">↻ Refresh</button></div>
+    </div>
+    <div class="health-grid" id="healthGrid">
+      <div style="padding:24px;color:var(--muted);font-style:italic">Loading…</div>
     </div>
   </div>
 
-  <script>
-    const BASE = 'http://localhost:8001';
+</div>
 
-    // ── Tab switching ──────────────────────────────────────────
-    function showTab(t) {
-      ['hi1','x1','x2','x3','log'].forEach(id => {
-        document.getElementById('pane-' + id).classList.toggle('hidden', id !== t);
-        document.getElementById('tab-'  + id).className = 'py-3 px-3 ' + (id === t ? 'tab-active' : 'tab-inactive');
-      });
-      if (t === 'hi1') loadWarrants();
-      if (t === 'x1')  loadX1Tasks();
-      if (t === 'log') refreshCombinedLog();
-    }
+<script>
+'use strict';
+let LIS_BASE = 'http://76.13.211.64:8001';
+let refreshTimer = null;
+let iriData = [], ccData = [];
 
-    // ── Health ─────────────────────────────────────────────────
-    async function pollHealth() {
-      try {
-        const r = await fetch(BASE + '/health', { signal: AbortSignal.timeout(2000) });
-        const ok = r.ok;
-        ['admf','irimf','ccmf','ne'].forEach(id => {
-          document.getElementById('svc-' + id).querySelector('div').className =
-            'w-2 h-2 rounded-full ' + (ok ? 'bg-green-400' : 'bg-red-500');
-        });
-      } catch {
-        ['admf','irimf','ccmf','ne'].forEach(id => {
-          document.getElementById('svc-' + id).querySelector('div').className = 'w-2 h-2 rounded-full bg-red-500';
-        });
-      }
-    }
+/* clock */
+function updateClock() {
+  document.getElementById('sysTime').textContent = 'IST ' +
+    new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',hour12:false,
+      day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'
+    }).format(new Date());
+}
+setInterval(updateClock,1000); updateClock();
 
-    // ── HI1: Activate ──────────────────────────────────────────
-    async function activateWarrant() {
-      const msg = document.getElementById('activate-msg');
-      const now = new Date();
-      const body = {
-        liid:             document.getElementById('f-liid').value.trim(),
-        lea_id:           document.getElementById('f-leaid').value.trim(),
-        target:           { id_type: document.getElementById('f-idtype').value, value: document.getElementById('f-target').value.trim() },
-        intercept_type:   document.getElementById('f-itype').value,
-        valid_from:       document.getElementById('f-vfrom').value || now.toISOString(),
-        valid_until:      document.getElementById('f-vuntil').value || new Date(now.getTime()+86400000*180).toISOString(),
-        delivery_address: document.getElementById('f-delivery').value.trim(),
-      };
-      if (!body.liid || !body.lea_id || !body.target.value) { showMsg(msg,'LIID, LEA ID and Target are required.',false); return; }
-      try {
-        const r = await fetch(BASE+'/hi1/warrants/activate', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
-        const d = await r.json();
-        showMsg(msg, r.ok ? '✓ '+d.message : '✗ '+(d.detail||JSON.stringify(d)), r.ok);
-        if (r.ok) { loadWarrants(); setTimeout(loadX1Tasks, 400); }
-      } catch { showMsg(msg,'✗ Server unreachable — is it running?',false); }
-    }
+function saveConfig() {
+  LIS_BASE = `http://${document.getElementById('cfgIp').value.trim()}:${document.getElementById('cfgPort').value.trim()}`;
+  fetchAll();
+}
 
-    // ── HI1: Deactivate ────────────────────────────────────────
-    async function deactivateWarrant() {
-      const msg = document.getElementById('deactivate-msg');
-      const body = { liid: document.getElementById('d-liid').value.trim(), lea_id: document.getElementById('d-leaid').value.trim() };
-      if (!body.liid || !body.lea_id) { msg.textContent='Enter LIID and LEA ID'; msg.className='text-xs text-yellow-400'; return; }
-      try {
-        const r = await fetch(BASE+'/hi1/warrants/deactivate', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
-        const d = await r.json();
-        msg.textContent = r.ok ? '✓ Deactivated' : '✗ '+d.detail;
-        msg.className = 'text-xs '+(r.ok?'text-green-400':'text-red-400');
-        if (r.ok) loadWarrants();
-      } catch { msg.textContent='✗ Unreachable'; msg.className='text-xs text-red-400'; }
-    }
+function setRefresh() {
+  const ms = +document.getElementById('cfgRefresh').value;
+  if (refreshTimer) clearInterval(refreshTimer);
+  const ind = document.getElementById('refreshInd');
+  if (ms > 0) { refreshTimer = setInterval(fetchAll, ms); ind.innerHTML = `<span class="pulse"></span> Every ${ms/1000}s`; }
+  else ind.innerHTML = `<span style="color:var(--yellow)">⏸ Paused</span>`;
+}
+setRefresh();
 
-    // ── HI1: Load warrants ─────────────────────────────────────
-    async function loadWarrants() {
-      const tb = document.getElementById('warrant-table');
-      try {
-        const ws = await fetch(BASE+'/hi1/warrants').then(r=>r.json());
-        if (!ws.length) { tb.innerHTML='<tr><td colspan="7" class="text-slate-500 text-xs py-6 text-center">No active warrants.</td></tr>'; return; }
-        tb.innerHTML = ws.map(w=>`
-          <tr class="border-b border-slate-800 hover:bg-slate-800/30">
-            <td class="py-2 pr-3 font-mono text-xs text-blue-300">${w.liid}</td>
-            <td class="py-2 pr-3 text-xs">${w.lea_id}</td>
-            <td class="py-2 pr-3 font-mono text-xs">${w.target_value}</td>
-            <td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded-full ${itypeBadge(w.intercept_type)}">${w.intercept_type}</span></td>
-            <td class="py-2 pr-3 text-xs text-slate-400">${fmtDate(w.valid_until)}</td>
-            <td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded-full ${w.active?'badge-active':'badge-inactive'}">${w.active?'Active':'Inactive'}</span></td>
-            <td class="py-2"><button onclick="quickDeact('${w.liid}','${w.lea_id}')" class="text-xs text-red-400 hover:text-red-300">Deactivate</button></td>
-          </tr>`).join('');
-      } catch { tb.innerHTML='<tr><td colspan="7" class="text-red-400 text-xs py-4 text-center">Server unreachable.</td></tr>'; }
-    }
-    function quickDeact(liid, leaId) {
-      document.getElementById('d-liid').value=liid; document.getElementById('d-leaid').value=leaId; deactivateWarrant();
-    }
+async function api(path) {
+  const r = await fetch(LIS_BASE + path, {signal: AbortSignal.timeout(5000)});
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+function setOnline(ok) {
+  const el = document.getElementById('srvStatus');
+  el.textContent = ok ? '● Connected' : '● Disconnected';
+  el.className   = ok ? 'badge badge-green' : 'badge badge-red';
+}
 
-    // ── X1: Load tasks ─────────────────────────────────────────
-    async function loadX1Tasks() {
-      const tb = document.getElementById('x1-table');
-      const filterNE = document.getElementById('x1-filter-ne').value;
-      let all = [];
-      for (const ne of ['MME','SGW','PGW']) {
-        try {
-          const tasks = await fetch(BASE+'/x1/tasks/'+ne,{signal:AbortSignal.timeout(2000)}).then(r=>r.json());
-          document.getElementById('ne-'+ne.toLowerCase()+'-count').textContent = tasks.length;
-          tasks.forEach(t => all.push({...t, ne_name: ne}));
-        } catch { document.getElementById('ne-'+ne.toLowerCase()+'-count').textContent='—'; }
-      }
-      if (filterNE !== 'ALL') all = all.filter(t => t.ne_name === filterNE);
-      all.sort((a,b) => new Date(b.received_at||0)-new Date(a.received_at||0));
-      if (!all.length) { tb.innerHTML='<tr><td colspan="8" class="text-slate-500 text-xs py-6 text-center">No X1 tasks yet.</td></tr>'; return; }
-      tb.innerHTML = all.map(t=>`
-        <tr class="border-b border-slate-800 hover:bg-slate-800/30">
-          <td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded ne-badge">${t.ne_name}</span></td>
-          <td class="py-2 pr-3 font-mono text-xs text-slate-400">${(t.task_id||'').substring(0,8)}…</td>
-          <td class="py-2 pr-3 font-mono text-xs text-blue-300">${t.liid}</td>
-          <td class="py-2 pr-3 font-mono text-xs">${t.target_value}</td>
-          <td class="py-2 pr-3 text-xs text-slate-400">${t.target_id_type||'—'}</td>
-          <td class="py-2 pr-3"><span class="text-xs px-2 py-0.5 rounded-full ${t.action==='ACTIVATE'?'badge-act':'badge-deact'}">${t.action}</span></td>
-          <td class="py-2 pr-3 text-xs text-slate-400">${t.intercept_type||'—'}</td>
-          <td class="py-2 text-xs text-slate-400">${fmtDate(t.received_at)}</td>
-        </tr>`).join('');
-    }
+async function fetchAll() {
+  const ind = document.getElementById('refreshInd');
+  const saved = ind.innerHTML;
+  ind.innerHTML = '<span class="spin">⟳</span> Fetching…';
+  try {
+    await Promise.all([fetchWarrants(), fetchX1(), fetchIRI(), fetchCC(), fetchHealth()]);
+    setOnline(true);
+  } catch { setOnline(false); }
+  finally { ind.innerHTML = saved; }
+}
 
-    // ── X2: Send IRI ──────────────────────────────────────────
-    async function sendX2Event() {
-      const msg = document.getElementById('x2-msg');
-      const body = {
-        liid:            document.getElementById('x2-liid').value.trim(),
-        sequence_number: Math.floor(Math.random()*9999),
-        event_type:      document.getElementById('x2-event').value,
-        timestamp:       new Date().toISOString(),
-        imsi:            v('x2-imsi'), msisdn: v('x2-msisdn'), imei: v('x2-imei'),
-        cell_id:         v('x2-cell'), tai: v('x2-tai'), ue_ip: v('x2-ueip'), apn: v('x2-apn'),
-      };
-      if (!body.liid) { showMsg(msg,'LIID required',false); return; }
-      try {
-        const r = await fetch(BASE+'/x2/iri', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
-        const d = await r.json();
-        showMsg(msg, r.ok?`✓ Accepted — seq ${d.seq}`:`✗ ${d.detail}`, r.ok);
-        if (r.ok) appendLog('x2-log','x2-count',body,d,'iri');
-      } catch { showMsg(msg,'✗ Server unreachable',false); }
-    }
+/* Warrants */
+async function fetchWarrants() {
+  const data = await api('/hi1/warrants');
+  const list = Array.isArray(data) ? data : (data.warrants || []);
+  document.getElementById('warrantCount').textContent = list.length;
+  document.getElementById('statWarrants').textContent = list.length;
+  const tb = document.getElementById('warrantsBody');
+  if (!list.length) { tb.innerHTML='<tr class="empty-row"><td colspan="9">No active warrants</td></tr>'; return; }
+  tb.innerHTML = list.map(w=>`<tr>
+    <td><span class="pill pill-blue mono">${esc(w.liid||w.li_id)}</span></td>
+    <td>${esc(w.lea_id)}</td><td class="mono">${esc(w.target_msisdn)}</td><td class="mono">${esc(w.target_imsi)}</td>
+    <td><span class="pill ${iCol(w.intercept_type)}">${esc(w.intercept_type||'IRI_AND_CC')}</span></td>
+    <td style="font-size:11px;color:var(--muted)">${esc(w.legal_authority)}</td>
+    <td class="mono">${esc(w.auth_ref)}</td>
+    <td style="font-size:11px">${fmtDate(w.valid_until)}</td>
+    <td><span class="pill pill-green">ACTIVE</span></td>
+  </tr>`).join('');
+}
 
-    function fillX2(type) {
-      document.getElementById('x2-event').value = type;
-      if (!document.getElementById('x2-liid').value) document.getElementById('x2-liid').value = 'LIID-2026-001';
-      if (!document.getElementById('x2-imsi').value) document.getElementById('x2-imsi').value = '404101234567890';
-      if (!document.getElementById('x2-cell').value) document.getElementById('x2-cell').value = '404-10-1001-00123';
-      if (!document.getElementById('x2-tai').value)  document.getElementById('x2-tai').value  = '404-10-1001';
-      if (!document.getElementById('x2-ueip').value) document.getElementById('x2-ueip').value = '10.45.0.1';
-      if (!document.getElementById('x2-apn').value)  document.getElementById('x2-apn').value  = 'airtelgprs.com';
-    }
+/* X1 */
+async function fetchX1() {
+  const NEs=['mme','sgw','pgw'], results={}, labels={mme:'📡 MME',sgw:'🔀 SGW',pgw:'🌐 PGW'};
+  const cols={mme:'pill-blue',sgw:'pill-yellow',pgw:'pill-green'};
+  let total=0;
+  for(const ne of NEs){
+    try{ const d=await api(`/x1/tasks/${ne}`); results[ne]=Array.isArray(d)?d:(d.tasks||[]); total+=results[ne].length; }
+    catch{ results[ne]=[]; }
+  }
+  document.getElementById('x1TotalCount').textContent=total;
+  document.getElementById('statX1').textContent=total;
+  let html='';
+  for(const [ne,tasks] of Object.entries(results)){
+    html+=`<div class="x1-card">
+      <div class="x1-card-head"><span class="x1-ne-name">${labels[ne]}</span>
+      <span class="pill ${cols[ne]}">${tasks.length} task${tasks.length!==1?'s':''}</span></div>
+      <div>`;
+    if(!tasks.length) html+=`<div style="color:var(--muted);font-size:11px;font-style:italic">No tasks queued</div>`;
+    else tasks.forEach(t=>{
+      const task=typeof t==='string'?tryJson(t):t;
+      html+=`<div class="x1-task-row">
+        <span style="color:var(--accent);font-family:monospace;font-size:11px">${esc(task.liid||t)}</span>
+        <span class="pill ${iCol(task.intercept_type)}" style="font-size:10px">${esc(task.intercept_type||'IRI_AND_CC')}</span>
+      </div>`;
+    });
+    html+=`</div></div>`;
+  }
+  document.getElementById('x1Grid').innerHTML=html||'<div style="padding:24px;color:var(--muted)">No X1 tasks</div>';
+}
 
-    // ── X3: Send CC ───────────────────────────────────────────
-    let x3Uplink=0, x3Downlink=0, x3Bytes=0;
-    async function sendX3Packet() {
-      const msg = document.getElementById('x3-msg');
-      const payload = document.getElementById('x3-payload').value.trim();
-      const payloadHex = strToHex(payload);
-      const frameLen = parseInt(document.getElementById('x3-len').value)||payload.length||100;
-      const body = {
-        liid:            document.getElementById('x3-liid').value.trim(),
-        sequence_number: Math.floor(Math.random()*99999),
-        timestamp:       new Date().toISOString(),
-        direction:       document.getElementById('x3-dir').value,
-        payload_hex:     payloadHex,
-        src_ip:          v('x3-srcip'), dst_ip: v('x3-dstip'),
-        src_port:        parseInt(document.getElementById('x3-srcport').value)||null,
-        dst_port:        parseInt(document.getElementById('x3-dstport').value)||null,
-        protocol:        parseInt(document.getElementById('x3-proto').value),
-        frame_length:    frameLen,
-      };
-      if (!body.liid) { showMsg(msg,'LIID required',false); return; }
-      try {
-        const r = await fetch(BASE+'/x3/cc', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
-        const d = await r.json();
-        showMsg(msg, r.ok?`✓ Accepted — seq ${d.seq}`:`✗ ${d.detail}`, r.ok);
-        if (r.ok) {
-          appendLog('x3-log','x3-count',body,d,'cc');
-          if (body.direction==='UPLINK') x3Uplink++; else x3Downlink++;
-          x3Bytes += frameLen;
-          document.getElementById('x3-uplink-count').textContent   = x3Uplink;
-          document.getElementById('x3-downlink-count').textContent  = x3Downlink;
-          document.getElementById('x3-bytes-count').textContent     = x3Bytes;
-        }
-      } catch { showMsg(msg,'✗ Server unreachable',false); }
-    }
+/* IRI */
+async function fetchIRI() {
+  const data=await api('/x2/iri/log/db');
+  iriData=(Array.isArray(data)?data:(data.events||[])).reverse();
+  renderIRI();
+  document.getElementById('statIRI').textContent=iriData.length;
+}
+function renderIRI(){
+  const f=document.getElementById('iriFilter').value;
+  const list=f?iriData.filter(e=>e.event_type===f):iriData;
+  document.getElementById('iriCount').textContent=list.length;
+  const el=document.getElementById('iriLog');
+  if(!list.length){el.innerHTML='<div class="log-empty">No IRI events</div>';return;}
+  el.innerHTML=list.slice(0,200).map(e=>{
+    const p=safeJson(e.payload);
+    const asn=e.asn1_hex?`<span class="pill pill-gray" style="font-size:10px">ASN.1</span> <span style="color:var(--muted);font-size:10px;font-family:monospace">${e.asn1_hex.substring(0,20)}…</span>`:'';
+    return `<div class="log-row" style="grid-template-columns:150px 100px 80px 130px 1fr">
+      <span class="mono" style="color:var(--muted);font-size:11px">${fmtTs(e.ts)}</span>
+      <span class="pill ${eCol(e.event_type)}" style="font-size:10px">${esc(e.event_type)}</span>
+      <span class="mono" style="color:var(--accent)">${esc(e.liid)}</span>
+      <span class="mono">${esc(p.imsi||e.imsi)}</span>
+      <span style="color:var(--muted);font-size:11px">
+        MSISDN:${esc(p.msisdn||'—')} Cell:${esc(p.cell_id||'—')} UE-IP:${esc(p.ue_ip||'—')} ${asn}
+      </span>
+    </div>`;
+  }).join('');
+}
+function clearIRILocal(){iriData=[];renderIRI();document.getElementById('statIRI').textContent='0';}
 
-    function fillX3(type) {
-      const m = {
-        https: { srcip:'10.45.0.1', srcport:54321, dstip:'142.250.180.46', dstport:443,  proto:'6',  dir:'UPLINK',   payload:'TLS ClientHello', len:517 },
-        http:  { srcip:'10.45.0.1', srcport:54322, dstip:'93.184.216.34',  dstport:80,   proto:'6',  dir:'UPLINK',   payload:'GET / HTTP/1.1\r\nHost: example.com', len:200 },
-        dns:   { srcip:'10.45.0.1', srcport:53001, dstip:'8.8.8.8',        dstport:53,   proto:'17', dir:'UPLINK',   payload:'DNS Query: example.com', len:64 },
-        voip:  { srcip:'10.45.0.1', srcport:16384, dstip:'203.0.113.5',    dstport:5004, proto:'17', dir:'UPLINK',   payload:'RTP Voice Frame', len:214 },
-        ping:  { srcip:'10.45.0.1', srcport:0,     dstip:'8.8.8.8',        dstport:0,    proto:'1',  dir:'UPLINK',   payload:'ICMP Echo Request', len:84 },
-        down:  { srcip:'142.250.180.46', srcport:443, dstip:'10.45.0.1',   dstport:54321,proto:'6',  dir:'DOWNLINK', payload:'TLS Application Data', len:1400 },
-      };
-      const s = m[type]; if (!s) return;
-      if (!document.getElementById('x3-liid').value) document.getElementById('x3-liid').value='LIID-2026-001';
-      document.getElementById('x3-srcip').value   = s.srcip;
-      document.getElementById('x3-srcport').value = s.srcport;
-      document.getElementById('x3-dstip').value   = s.dstip;
-      document.getElementById('x3-dstport').value = s.dstport;
-      document.getElementById('x3-proto').value   = s.proto;
-      document.getElementById('x3-dir').value     = s.dir;
-      document.getElementById('x3-payload').value = s.payload;
-      document.getElementById('x3-len').value     = s.len;
-    }
+/* CC */
+async function fetchCC() {
+  const data=await api('/x3/cc/log/db');
+  ccData=(Array.isArray(data)?data:(data.packets||[])).reverse();
+  renderCC();
+  document.getElementById('statCC').textContent=ccData.length;
+}
+function renderCC(){
+  document.getElementById('ccCount').textContent=ccData.length;
+  const el=document.getElementById('ccLog');
+  if(!ccData.length){el.innerHTML='<div class="log-empty">No CC packets</div>';return;}
+  el.innerHTML=ccData.slice(0,100).map(p=>{
+    const pay=safeJson(p.payload);
+    const sftp=p.sftp_delivered
+      ?`<span class="pill pill-green" style="font-size:10px">✓ SFTP</span> ${esc(pay.sftp_path||'')}`
+      :`<span class="pill pill-yellow" style="font-size:10px">Pending</span>`;
+    return `<div class="log-row" style="grid-template-columns:150px 90px 80px 80px 80px 1fr">
+      <span class="mono" style="color:var(--muted);font-size:11px">${fmtTs(p.ts)}</span>
+      <span class="pill ${neCol(p.ne_source)}" style="font-size:10px">${esc(p.ne_source||'SGW')}</span>
+      <span class="mono" style="color:var(--accent)">${esc(p.liid)}</span>
+      <span class="pill pill-gray" style="font-size:10px">${esc(pay.protocol||'GTP-U')}</span>
+      <span style="color:var(--muted);font-size:11px">${esc(pay.size_bytes||pay.size||'—')}B</span>
+      <span style="font-size:11px">${sftp}</span>
+    </div>`;
+  }).join('');
+}
+function clearCCLocal(){ccData=[];renderCC();document.getElementById('statCC').textContent='0';}
 
-    // ── Combined log ──────────────────────────────────────────
-    async function refreshCombinedLog() {
-      const el = document.getElementById('combined-log');
-      const filter = document.getElementById('log-filter').value;
-      let entries = [];
-      try {
-        if (filter==='ALL'||filter==='X2') {
-          const iri = await fetch(BASE+'/x2/iri/log').then(r=>r.json()).catch(()=>[]);
-          iri.forEach(e=>entries.push({type:'X2/IRI',time:e.received_at||e.timestamp,data:e}));
-        }
-        if (filter==='ALL'||filter==='X3') {
-          const cc = await fetch(BASE+'/x3/cc/log').then(r=>r.json()).catch(()=>[]);
-          cc.forEach(e=>entries.push({type:'X3/CC',time:e.received_at||e.timestamp,data:e}));
-        }
-        if (filter==='ALL'||filter==='X1') {
-          for (const ne of ['MME','SGW','PGW']) {
-            const tasks = await fetch(BASE+'/x1/tasks/'+ne).then(r=>r.json()).catch(()=>[]);
-            tasks.forEach(t=>entries.push({type:'X1/'+ne,time:t.received_at,data:t}));
-          }
-        }
-        entries.sort((a,b)=>new Date(b.time||0)-new Date(a.time||0));
-        if (!entries.length) { el.innerHTML='<div class="text-slate-500 text-center py-8">No events yet.</div>'; return; }
-        el.innerHTML = entries.map(e=>{
-          const isIRI = e.type.startsWith('X2');
-          const isCC  = e.type.startsWith('X3');
-          const cls   = isIRI?'log-iri':isCC?'log-cc':'log-x1';
-          const badge = isIRI?'text-blue-400':isCC?'text-purple-400':'text-orange-400';
-          return `<div class="log-entry ${cls}">
-            <div class="flex items-center gap-2 mb-1">
-              <span class="font-bold ${badge}">[${e.type}]</span>
-              <span class="text-slate-400">${fmtDate(e.time)}</span>
-              ${e.data.liid?`<span class="text-slate-300">LIID: ${e.data.liid}</span>`:''}
-              ${e.data.event_type?`<span class="text-yellow-400">${e.data.event_type}</span>`:''}
-              ${e.data.direction?`<span class="text-cyan-400">${e.data.direction}</span>`:''}
-              ${e.data.action?`<span class="${e.data.action==='ACTIVATE'?'text-green-400':'text-red-400'}">${e.data.action}</span>`:''}
-            </div>
-            <div class="text-slate-400 truncate">${JSON.stringify(e.data).substring(0,120)}…</div>
-          </div>`;
-        }).join('');
-      } catch(e) { el.innerHTML='<div class="text-red-400 text-center py-4">Error loading log: '+e.message+'</div>'; }
-    }
-    function filterLog() { refreshCombinedLog(); }
+/* Health */
+async function fetchHealth() {
+  try {
+    const h=await api('/health');
+    document.getElementById('statUptime').textContent=fmtUptime(h.uptime_seconds);
+    document.getElementById('statVersion').textContent=h.version||'LIS v2.0';
+    setOnline(true);
+    document.getElementById('healthGrid').innerHTML=`
+      <div class="health-item"><div class="health-label">Server Status</div><div class="health-val" style="color:var(--green)">● ${esc(h.status||'healthy')}</div></div>
+      <div class="health-item"><div class="health-label">Database</div><div class="health-val">${esc(h.db||'SQLite')}</div></div>
+      <div class="health-item"><div class="health-label">Active Warrants</div><div class="health-val">${h.active_warrants||0}</div></div>
+      <div class="health-item"><div class="health-label">HI1 / ADMF</div><div class="health-val" style="color:var(--green)">● SOAP Ready</div></div>
+      <div class="health-item"><div class="health-label">IRI-MF (X2→HI2)</div><div class="health-val" style="color:var(--green)">● ASN.1 BER</div></div>
+      <div class="health-item"><div class="health-label">CC-MF (X3→HI3)</div><div class="health-val" style="color:${h.sftp_configured?'var(--green)':'var(--yellow)'}">
+        ${h.sftp_configured?'● SFTP Ready':'⚠ SFTP not configured'}</div></div>
+      <div class="health-item"><div class="health-label">Uptime</div><div class="health-val">${fmtUptime(h.uptime_seconds)}</div></div>
+      <div class="health-item"><div class="health-label">Version</div><div class="health-val">${esc(h.version||'v2.0')}</div></div>`;
+  } catch(e) {
+    setOnline(false);
+    document.getElementById('healthGrid').innerHTML='<div style="padding:24px;color:var(--red)">Cannot reach LIS server</div>';
+  }
+}
 
-    // ── Helpers ──────────────────────────────────────────────
-    function v(id) { return document.getElementById(id).value.trim()||null; }
-    function fmtDate(d) { return d?new Date(d).toLocaleString():'—'; }
-    function itypeBadge(t) { return t==='IRI_ONLY'?'badge-iri':t==='CC_ONLY'?'badge-cc':'badge-both'; }
-    function showMsg(el,text,ok) {
-      el.textContent=text;
-      el.className='text-xs rounded-lg p-2 '+(ok?'bg-green-900/40 text-green-400':'bg-red-900/40 text-red-400');
-      el.classList.remove('hidden');
-    }
-    function strToHex(str) {
-      if (!str) return '';
-      return Array.from(new TextEncoder().encode(str)).map(b=>b.toString(16).padStart(2,'0')).join('');
-    }
+/* Helpers */
+function esc(s){if(s==null)return'—';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function safeJson(v){if(!v)return{};if(typeof v==='object')return v;try{return JSON.parse(v);}catch{return{};}}
+function tryJson(v){try{return JSON.parse(v);}catch{return{};}}
+function fmtTs(ts){if(!ts)return'—';try{return new Date(ts).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',hour12:false});}catch{return ts;}}
+function fmtDate(d){if(!d)return'—';try{return new Date(d).toLocaleDateString('en-IN',{timeZone:'Asia/Kolkata'});}catch{return d;}}
+function fmtUptime(s){if(!s)return'—';const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);
+  if(d>0)return`${d}d ${h}h ${m}m`;if(h>0)return`${h}h ${m}m`;return`${m}m ${s%60}s`;}
+function iCol(t){return!t?'pill-blue':t==='IRI_ONLY'?'pill-yellow':t==='CC_ONLY'?'pill-orange':'pill-blue';}
+function eCol(t){const m={ATTACH:'pill-green',DETACH:'pill-red',BEARER_ESTABLISH:'pill-blue',BEARER_RELEASE:'pill-orange',
+  LOCATION_UPDATE:'pill-yellow',TAU:'pill-yellow',HANDOVER:'pill-orange',SMS:'pill-gray'};return m[t]||'pill-gray';}
+function neCol(n){if(!n)return'pill-gray';if(n.toLowerCase().includes('mme'))return'pill-blue';
+  if(n.toLowerCase().includes('pgw'))return'pill-green';return'pill-yellow';}
 
-    let x2LogCount=0, x3LogCount=0;
-    function appendLog(logId, countId, req, resp, type) {
-      const log = document.getElementById(logId);
-      const placeholder = log.querySelector('.text-slate-500');
-      if (placeholder) placeholder.remove();
-      const isCC = type==='cc';
-      const div = document.createElement('div');
-      div.className = 'log-entry '+(isCC?'log-cc':'log-iri');
-      if (isCC) {
-        div.innerHTML = `<div class="flex gap-2 items-center mb-1">
-          <span class="text-purple-400 font-bold">[X3/CC]</span>
-          <span class="text-slate-400">${new Date().toLocaleTimeString()}</span>
-          <span class="${req.direction==='UPLINK'?'text-cyan-400':'text-yellow-400'}">${req.direction}</span>
-          <span class="text-slate-300">seq ${resp.seq}</span>
-        </div>
-        <div class="text-slate-400">${req.src_ip||'?'}:${req.src_port||'?'} → ${req.dst_ip||'?'}:${req.dst_port||'?'} | Proto:${req.protocol} | ${req.frame_length}B</div>
-        ${req.payload_hex?`<div class="text-slate-500 mt-0.5 truncate">Payload: ${req.payload_hex.substring(0,60)}…</div>`:''}`;
-        x3LogCount++;
-        document.getElementById(countId).textContent = x3LogCount+' packets';
-      } else {
-        div.innerHTML = `<div class="flex gap-2 items-center mb-1">
-          <span class="text-blue-400 font-bold">[X2/IRI]</span>
-          <span class="text-slate-400">${new Date().toLocaleTimeString()}</span>
-          <span class="text-yellow-400 font-semibold">${req.event_type}</span>
-          <span class="text-slate-300">seq ${resp.seq}</span>
-        </div>
-        <div class="text-slate-400">LIID:${req.liid} | IMSI:${req.imsi||'—'} | Cell:${req.cell_id||'—'} | UE-IP:${req.ue_ip||'—'}</div>`;
-        x2LogCount++;
-        document.getElementById(countId).textContent = x2LogCount+' events';
-      }
-      log.prepend(div);
-    }
-
-    function clearLog(logId, countId) {
-      document.getElementById(logId).innerHTML='<div class="text-slate-500 text-center py-8">Cleared.</div>';
-      if (logId==='x2-log') x2LogCount=0; else x3LogCount=0;
-      document.getElementById(countId).textContent='0 '+(logId==='x2-log'?'events':'packets');
-    }
-
-    // ── Init ─────────────────────────────────────────────────
-    const now=new Date(), later=new Date(now.getTime()+86400000*180);
-    const fmt=d=>d.toISOString().slice(0,16);
-    document.getElementById('f-vfrom').value  = fmt(now);
-    document.getElementById('f-vuntil').value = fmt(later);
-
-    pollHealth();
-    setInterval(pollHealth, 6000);
-    loadWarrants();
-  </script>
+fetchAll();
+</script>
 </body>
 </html>
