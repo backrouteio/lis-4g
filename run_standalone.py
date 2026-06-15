@@ -1,5 +1,5 @@
 """
-LIS Standalone Server v3.0 — India 4G LTE Lawful Interception System
+LIS Standalone Server v3.1 — India 4G LTE Lawful Interception System
 Zero Docker, Zero Kafka, Zero Redis. All in one process.
 
 Interfaces:
@@ -9,6 +9,7 @@ Interfaces:
   X1   — NE provisioning tasks (ADMF → MME/SGW/PGW)
   X2   — IRI events from NE (ASN.1 BER accepted)
   X3   — CC packets from NE (mirrored user-plane data)
+  AUTH — Role-based login (SHA-256, Bearer token sessions)
 
 Storage:
   SQLite (default):    python run_standalone.py
@@ -19,6 +20,7 @@ India context:
   Legal: Telegraph Act S5(2), IT Act S69, UAPA S39, NIA Act S6
   Format: +91 MSISDN, 404/405 IMSI prefix
 """
+import hashlib
 import json
 import os
 import sqlite3
@@ -28,18 +30,138 @@ import logging
 import argparse
 import time
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import datetime, timedelta
 from contextlib import contextmanager
 from typing import Optional, Any, Dict
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s")
 logger = logging.getLogger("LIS")
+
+
+# ═══════════════════════════════════════════════════════════════
+#  AUTHENTICATION  (SHA-256 passwords, Bearer token sessions)
+# ═══════════════════════════════════════════════════════════════
+
+# ── User accounts (SHA-256 hashed passwords) ─────────────────
+#
+#  Role: admin  → LIS Dashboard  (lis_adm!n_d0t)
+#  Role: lea    → LEA Portal     (lea_0ff!c3r_1B)
+#  Role: ne     → NE Simulator   (ne_3ng1n33r_4G)
+#
+_USERS: dict[str, dict] = {
+    "lis_adm!n_d0t": {
+        "password_hash": "20e766054cc7e5b3f2662c7277162b70036b350ec9711e6ff3ab7fc59f94ebe0",
+        "role":   "admin",
+        "name":   "LIS Administrator (DoT)",
+        "access": "LIS Dashboard — Full Access",
+    },
+    "lea_0ff!c3r_1B": {
+        "password_hash": "b4cc57acfe3bd63add2dfee95a54ad40ca96234326f2bebb4d7d7c129b2e1dd9",
+        "role":   "lea",
+        "name":   "LEA Officer — Intelligence Bureau",
+        "access": "LEA Portal — HI1 / HI2 / HI3",
+    },
+    "ne_3ng1n33r_4G": {
+        "password_hash": "c26633674ee7301fba8f7e06172fe904d5757a4883a0aef36749cd4d449904e2",
+        "role":   "ne",
+        "name":   "NE Engineer — Network Simulator",
+        "access": "NE Simulator — X1 / X2 / X3",
+    },
+}
+
+# token → {username, role, name, expires_at (epoch)}
+_sessions: dict[str, dict] = {}
+_SESSION_TTL_HOURS = 8
+_auth_lock = threading.Lock()
+
+# Failed login tracking (per IP)
+_failed_logins: dict[str, list] = {}
+_MAX_FAILS = 5
+_LOCKOUT_SECS = 300   # 5 minutes
+
+
+def _sha256(s: str) -> str:
+    return hashlib.sha256(s.encode("utf-8")).hexdigest()
+
+
+def _is_locked_out(ip: str) -> bool:
+    now = time.time()
+    with _auth_lock:
+        attempts = [t for t in _failed_logins.get(ip, []) if now - t < _LOCKOUT_SECS]
+        _failed_logins[ip] = attempts
+        return len(attempts) >= _MAX_FAILS
+
+
+def _record_fail(ip: str):
+    now = time.time()
+    with _auth_lock:
+        _failed_logins.setdefault(ip, []).append(now)
+
+
+def _create_session(username: str, user: dict) -> str:
+    token = str(uuid.uuid4()) + "-" + str(uuid.uuid4())   # 72-char token
+    expires = time.time() + _SESSION_TTL_HOURS * 3600
+    with _auth_lock:
+        _sessions[token] = {
+            "username":   username,
+            "role":       user["role"],
+            "name":       user["name"],
+            "access":     user["access"],
+            "expires_at": expires,
+        }
+    logger.info("AUTH: login user=%s role=%s", username, user["role"])
+    return token
+
+
+def _get_session(token: str) -> dict | None:
+    with _auth_lock:
+        s = _sessions.get(token)
+        if s and time.time() < s["expires_at"]:
+            return s
+        if s:
+            del _sessions[token]   # expired
+    return None
+
+
+def _purge_expired():
+    now = time.time()
+    with _auth_lock:
+        expired = [t for t, s in _sessions.items() if now >= s["expires_at"]]
+        for t in expired:
+            del _sessions[t]
+
+
+def _token_from_request(request: Request) -> str | None:
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        return auth[7:]
+    # Also accept from cookie or query param for SOAP/browser edge cases
+    return request.query_params.get("token")
+
+
+def require_auth(request: Request) -> dict:
+    """FastAPI dependency — raises 401 if not authenticated."""
+    token = _token_from_request(request)
+    if not token:
+        raise HTTPException(status_code=401, detail="Authentication required. Please log in.")
+    session = _get_session(token)
+    if not session:
+        raise HTTPException(status_code=401, detail="Session expired or invalid. Please log in again.")
+    return session
+
+
+# ── Auth endpoints ────────────────────────────────────────────
+
+class LoginReq(BaseModel):
+    username: str
+    password: str
+
 
 # ═══════════════════════════════════════════════════════════════
 #  SHARED IN-MEMORY STATE
@@ -509,10 +631,76 @@ def _hi2_push_async(liid: str, iri_record: dict):
 
 app = FastAPI(
     title="LIS Standalone — India 4G LTE",
-    version="3.0.0",
-    description="Lawful Interception System — DoT/MHA Authorised | HI1/HI2/HI3/X1/X2/X3"
+    version="3.1.0",
+    description="Lawful Interception System — DoT/MHA Authorised | HI1/HI2/HI3/X1/X2/X3 | Role-based Auth"
 )
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+
+# ── Auth routes ───────────────────────────────────────────────
+
+@app.post("/auth/login", tags=["Auth"])
+async def login(req: LoginReq, request: Request):
+    """Authenticate and receive a Bearer token (valid 8 hours)."""
+    ip = request.client.host if request.client else "unknown"
+
+    if _is_locked_out(ip):
+        logger.warning("AUTH: lockout IP=%s user=%s", ip, req.username)
+        raise HTTPException(429, "Too many failed attempts. Try again in 5 minutes.")
+
+    user = _USERS.get(req.username)
+    if not user or _sha256(req.password) != user["password_hash"]:
+        _record_fail(ip)
+        remaining = _MAX_FAILS - len(_failed_logins.get(ip, []))
+        logger.warning("AUTH: failed login user=%s IP=%s", req.username, ip)
+        raise HTTPException(401, f"Invalid username or password. {max(0,remaining)} attempt(s) remaining.")
+
+    token = _create_session(req.username, user)
+    _purge_expired()
+
+    return {
+        "token":    token,
+        "username": req.username,
+        "role":     user["role"],
+        "name":     user["name"],
+        "access":   user["access"],
+        "expires_in_hours": _SESSION_TTL_HOURS,
+    }
+
+
+@app.post("/auth/logout", tags=["Auth"])
+def logout(request: Request):
+    """Invalidate the current session token."""
+    token = _token_from_request(request)
+    if token:
+        with _auth_lock:
+            _sessions.pop(token, None)
+    return {"status": "logged_out"}
+
+
+@app.get("/auth/me", tags=["Auth"])
+def whoami(session: dict = Depends(require_auth)):
+    """Return info about the currently logged-in user."""
+    return {
+        "username": session["username"],
+        "role":     session["role"],
+        "name":     session["name"],
+        "access":   session["access"],
+    }
+
+
+@app.get("/auth/sessions", tags=["Auth"])
+def list_sessions(session: dict = Depends(require_auth)):
+    """Admin only — list active sessions."""
+    if session["role"] != "admin":
+        raise HTTPException(403, "Admin role required")
+    _purge_expired()
+    with _auth_lock:
+        return [
+            {"username": s["username"], "role": s["role"],
+             "expires_in_min": int((s["expires_at"] - time.time()) / 60)}
+            for s in _sessions.values()
+        ]
 
 
 # ── Pydantic Models ───────────────────────────────────────────
@@ -618,7 +806,7 @@ def _x1_provision(warrant: dict, action: str):
 
 
 @app.post("/hi1/warrants/activate", tags=["HI1"])
-def activate_warrant(req: ActivateReq):
+def activate_warrant(req: ActivateReq, session: dict = Depends(require_auth)):
     # Normalise target fields
     target_msisdn = req.target_msisdn or (req.target.value if req.target and req.target.id_type=="MSISDN" else None) or ""
     target_imsi   = req.target_imsi   or (req.target.value if req.target and req.target.id_type=="IMSI"   else None) or ""
@@ -673,7 +861,7 @@ def activate_warrant(req: ActivateReq):
 
 
 @app.post("/hi1/warrants/deactivate", tags=["HI1"])
-def deactivate_warrant(req: DeactivateReq):
+def deactivate_warrant(req: DeactivateReq, session: dict = Depends(require_auth)):
     with db() as d:
         row = d.fetchone("SELECT * FROM warrants WHERE liid=?", (req.liid,))
         if not row:
@@ -692,7 +880,7 @@ def deactivate_warrant(req: DeactivateReq):
 
 
 @app.get("/hi1/warrants", tags=["HI1"])
-def list_warrants():
+def list_warrants(session: dict = Depends(require_auth)):
     with db() as d:
         rows = d.fetchall(
             "SELECT * FROM warrants WHERE active=1 AND valid_until > ? ORDER BY created_at DESC",
@@ -719,7 +907,7 @@ def list_warrants():
 
 
 @app.get("/hi1/warrants/{liid}", tags=["HI1"])
-def get_warrant(liid: str):
+def get_warrant(liid: str, session: dict = Depends(require_auth)):
     with db() as d:
         row = d.fetchone("SELECT * FROM warrants WHERE liid=?", (liid,))
     if not row: raise HTTPException(404, f"Warrant {liid} not found")
@@ -761,6 +949,22 @@ def _xml(el, tag: str) -> str:
 @app.post("/hi1/soap", tags=["HI1-SOAP"], response_class=Response,
           summary="HI1 SOAP — ETSI TS 103 120")
 async def hi1_soap(request: Request):
+    # SOAP requests carry the token via Authorization header OR X-Auth-Token header
+    token = None
+    auth_hdr = request.headers.get("Authorization", "")
+    if auth_hdr.startswith("Bearer "):
+        token = auth_hdr[7:]
+    if not token:
+        token = request.headers.get("X-Auth-Token", "")
+    if not token:
+        return Response(_soap_fault("soapenv:Client", "Authentication required. Include Authorization: Bearer <token> header."),
+                        media_type="text/xml", status_code=401)
+    sess = _get_session(token)
+    if not sess:
+        return Response(_soap_fault("soapenv:Client", "Invalid or expired session token."),
+                        media_type="text/xml", status_code=401)
+    _purge_expired()
+
     raw = await request.body()
     try:
         root = ET.fromstring(raw)
@@ -870,7 +1074,7 @@ async def hi1_soap(request: Request):
 # ── X2 — IRI Events from NE (ASN.1 BER supported) ────────────
 
 @app.post("/x2/iri", tags=["X2"])
-def receive_iri(event: X2IriEvent):
+def receive_iri(event: X2IriEvent, session: dict = Depends(require_auth)):
     # Check warrant is active
     with _lock:
         active = _warrants.get(event.liid, {}).get("active", False)
@@ -958,13 +1162,13 @@ def receive_iri(event: X2IriEvent):
 
 
 @app.get("/x2/iri/log", tags=["X2"])
-def get_iri_log():
+def get_iri_log(session: dict = Depends(require_auth)):
     with _lock:
         return list(reversed(_iri_events[-100:]))
 
 
 @app.get("/x2/iri/log/db", tags=["X2"])
-def get_iri_log_db(liid: Optional[str] = None, limit: int = 200):
+def get_iri_log_db(liid: Optional[str] = None, limit: int = 200, session: dict = Depends(require_auth)):
     if liid:
         sql, params = "SELECT * FROM iri_log WHERE liid=? ORDER BY id DESC LIMIT ?", (liid, limit)
     else:
@@ -982,7 +1186,7 @@ def get_iri_log_db(liid: Optional[str] = None, limit: int = 200):
 # ── X3 — CC Packets from NE (SFTP delivery to LEA) ───────────
 
 @app.post("/x3/cc", tags=["X3"])
-def receive_cc(pkt: X3CcPacket):
+def receive_cc(pkt: X3CcPacket, session: dict = Depends(require_auth)):
     with _lock:
         active = _warrants.get(pkt.liid, {}).get("active", False)
     if not active:
@@ -1039,13 +1243,13 @@ def receive_cc(pkt: X3CcPacket):
 
 
 @app.get("/x3/cc/log", tags=["X3"])
-def get_cc_log():
+def get_cc_log(session: dict = Depends(require_auth)):
     with _lock:
         return list(reversed(_cc_events[-100:]))
 
 
 @app.get("/x3/cc/log/db", tags=["X3"])
-def get_cc_log_db(liid: Optional[str] = None, limit: int = 200):
+def get_cc_log_db(liid: Optional[str] = None, limit: int = 200, session: dict = Depends(require_auth)):
     if liid:
         sql, params = "SELECT * FROM cc_log WHERE liid=? ORDER BY id DESC LIMIT ?", (liid, limit)
     else:
@@ -1062,7 +1266,7 @@ def get_cc_log_db(liid: Optional[str] = None, limit: int = 200):
 # ── SFTP config & test ────────────────────────────────────────
 
 @app.post("/hi3/sftp/config", tags=["HI3"])
-def set_sftp_config(cfg: SftpConfigReq):
+def set_sftp_config(cfg: SftpConfigReq, session: dict = Depends(require_auth)):
     global _sftp_config
     _sftp_config = {"host": cfg.host, "port": cfg.port,
                     "username": cfg.username, "password": cfg.password}
@@ -1071,7 +1275,7 @@ def set_sftp_config(cfg: SftpConfigReq):
 
 
 @app.post("/hi3/sftp/test", tags=["HI3"])
-def test_sftp(cfg: SftpConfigReq):
+def test_sftp(cfg: SftpConfigReq, session: dict = Depends(require_auth)):
     """Test SFTP connectivity to the LEA machine."""
     try:
         import paramiko
@@ -1094,7 +1298,7 @@ def test_sftp(cfg: SftpConfigReq):
 
 
 @app.get("/hi3/files", tags=["HI3"])
-def list_cc_files():
+def list_cc_files(session: dict = Depends(require_auth)):
     """List CC files received and tracked (both SFTP-delivered and local)."""
     # Also scan local cc_received dir
     _ensure_cc_dir()
@@ -1120,7 +1324,7 @@ def list_cc_files():
 # ── X1 Tasks ─────────────────────────────────────────────────
 
 @app.get("/x1/tasks/{ne}", tags=["X1"])
-def get_ne_tasks(ne: str):
+def get_ne_tasks(ne: str, session: dict = Depends(require_auth)):
     ne = ne.upper()
     if ne not in _ne_tasks:
         raise HTTPException(404, f"Unknown NE: {ne}")
@@ -1129,7 +1333,7 @@ def get_ne_tasks(ne: str):
 
 
 @app.delete("/x1/tasks/{ne}", tags=["X1"])
-def clear_ne_tasks(ne: str):
+def clear_ne_tasks(ne: str, session: dict = Depends(require_auth)):
     ne = ne.upper()
     with _lock:
         _ne_tasks[ne] = []

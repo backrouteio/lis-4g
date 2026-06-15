@@ -135,9 +135,52 @@
   .info-bar{padding:8px 16px;font-size:11px;display:flex;gap:16px;flex-wrap:wrap;}
   .info-bar.blue{background:rgba(88,166,255,.06);border-bottom:1px solid var(--border);}
   .info-bar.orange{background:rgba(219,109,40,.06);border-bottom:1px solid var(--border);}
+  /* ── Login overlay ── */
+  #loginOverlay{position:fixed;inset:0;background:rgba(13,17,23,.97);display:flex;align-items:center;justify-content:center;z-index:9999;}
+  #loginOverlay.hidden{display:none;}
+  .login-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:36px 40px;width:380px;box-shadow:0 20px 60px rgba(0,0,0,.6);}
+  .login-logo{text-align:center;margin-bottom:24px;}
+  .login-logo .icon{font-size:40px;}
+  .login-logo h2{font-size:18px;font-weight:700;margin-top:8px;}
+  .login-logo p{font-size:12px;color:var(--muted);margin-top:4px;}
+  .login-field{margin-bottom:16px;}
+  .login-field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;}
+  .login-field input{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;font-family:monospace;outline:none;transition:border-color .2s;}
+  .login-field input:focus{border-color:var(--accent);}
+  .login-btn{width:100%;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;}
+  .login-btn:hover{opacity:.85;} .login-btn:disabled{opacity:.5;cursor:not-allowed;}
+  .login-err{color:var(--red);font-size:12px;text-align:center;margin-top:10px;min-height:18px;}
+  .login-hint{font-size:11px;color:var(--muted);text-align:center;margin-top:14px;border-top:1px solid var(--border);padding-top:12px;}
+  .user-badge{display:flex;align-items:center;gap:8px;font-size:12px;}
+  .user-badge .uname{color:var(--accent);font-family:monospace;font-weight:600;}
+  .user-badge .urole{color:var(--muted);font-size:11px;}
+  .btn-logout{padding:4px 12px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:4px;font-size:11px;cursor:pointer;}
+  .btn-logout:hover{border-color:var(--red);color:var(--red);}
 </style>
 </head>
 <body>
+
+<!-- ══ LOGIN OVERLAY ══ -->
+<div id="loginOverlay">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="icon">🗼</div>
+      <h2>NE Simulator</h2>
+      <p>Network Element Simulator — India 4G LTE LIS<br>Authorised Engineering Personnel Only</p>
+    </div>
+    <div class="login-field">
+      <label>Username</label>
+      <input type="text" id="loginUser" autocomplete="username" placeholder="Enter username" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="login-field">
+      <label>Password</label>
+      <input type="password" id="loginPass" autocomplete="current-password" placeholder="Enter password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">Sign In</button>
+    <div class="login-err" id="loginErr"></div>
+    <div class="login-hint">⚠️ Unauthorised access is a criminal offence under<br>IT Act 2000 §66 &amp; Indian Telegraph Act 1885 §26</div>
+  </div>
+</div>
 
 <!-- ══ HEADER ══ -->
 <header>
@@ -152,6 +195,11 @@
     <span id="srvStatus" class="badge badge-red">● LIS Disconnected</span>
     <span id="x1Notify" class="badge badge-orange" style="display:none">📋 New X1 Task</span>
     <span class="sys-time" id="sysTime"></span>
+    <div class="user-badge" id="userBadge" style="display:none">
+      <span class="uname" id="userNameDisp"></span>
+      <span class="urole" id="userRoleDisp"></span>
+      <button class="btn-logout" onclick="doLogout()">Sign Out</button>
+    </div>
   </div>
 </header>
 
@@ -505,6 +553,70 @@
 
 /* ══ Config ══ */
 let LIS_BASE = 'http://76.13.211.64:8001';
+
+/* ── Auth ── */
+function getToken(){ return sessionStorage.getItem('lis_token'); }
+function getUser(){  try{ return JSON.parse(sessionStorage.getItem('lis_user')||'null'); }catch{return null;} }
+
+async function doLogin() {
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const err  = document.getElementById('loginErr');
+  const btn  = document.getElementById('loginBtn');
+  if (!user || !pass) { err.textContent = 'Username and password required.'; return; }
+  btn.disabled = true; btn.textContent = 'Signing in…'; err.textContent = '';
+  try {
+    const r = await fetch(LIS_BASE + '/auth/login', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({username: user, password: pass}), signal: AbortSignal.timeout(8000)
+    });
+    const d = await r.json();
+    if (!r.ok) { err.textContent = d.detail || 'Login failed.'; return; }
+    sessionStorage.setItem('lis_token', d.token);
+    sessionStorage.setItem('lis_user', JSON.stringify({name: d.name, role: d.role, username: d.username}));
+    showAuthed(d);
+    document.getElementById('loginOverlay').classList.add('hidden');
+    setOperator(); checkServer(); fetchAllX1();
+    x1PollTimer = setInterval(fetchAllX1, 5000);
+  } catch(e) {
+    err.textContent = 'Cannot reach LIS server. Check IP/port.';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Sign In';
+  }
+}
+
+function showAuthed(u) {
+  document.getElementById('userNameDisp').textContent = u.username || u.name;
+  document.getElementById('userRoleDisp').textContent = '[' + (u.role||'').toUpperCase() + ']';
+  document.getElementById('userBadge').style.display = 'flex';
+}
+
+async function doLogout() {
+  const tok = getToken();
+  if (x1PollTimer) clearInterval(x1PollTimer);
+  if (tok) {
+    try { await fetch(LIS_BASE + '/auth/logout', {method:'POST', headers:{'Authorization':'Bearer '+tok}}); } catch{}
+  }
+  sessionStorage.removeItem('lis_token'); sessionStorage.removeItem('lis_user');
+  location.reload();
+}
+
+/* Auth-aware fetch wrapper */
+async function apiFetch(url, opts={}) {
+  const tok = getToken();
+  const headers = {'Authorization': tok ? 'Bearer '+tok : '', ...(opts.headers||{})};
+  const r = await fetch(url, {signal: AbortSignal.timeout(8000), ...opts, headers});
+  if (r.status === 401) { doLogout(); throw new Error('Session expired'); }
+  return r;
+}
+
+function requireAuth() {
+  const tok = getToken();
+  if (!tok) { document.getElementById('loginOverlay').classList.remove('hidden'); return false; }
+  const u = getUser();
+  if (u) showAuthed(u);
+  return true;
+}
 let x1PollTimer = null;
 let x1Data = {mme:[],sgw:[],pgw:[]};
 let iriSeq = 0;
@@ -563,7 +675,7 @@ setInterval(updateClock,1000); updateClock();
 
 async function checkServer(){
   try{
-    await fetch(LIS_BASE+'/health',{signal:AbortSignal.timeout(4000)});
+    await apiFetch(LIS_BASE+'/health',{signal:AbortSignal.timeout(4000)});
     document.getElementById('srvStatus').className='badge badge-green';
     document.getElementById('srvStatus').textContent='● LIS Connected';
   }catch{
@@ -578,7 +690,7 @@ async function fetchAllX1(){
   let total=0;
   for(const ne of NEs){
     try{
-      const d=await (await fetch(LIS_BASE+`/x1/tasks/${ne}`,{signal:AbortSignal.timeout(4000)})).json();
+      const d=await (await apiFetch(LIS_BASE+`/x1/tasks/${ne}`,{signal:AbortSignal.timeout(4000)})).json();
       const prev=x1Data[ne].length;
       x1Data[ne]=Array.isArray(d)?d:(d.tasks||[]);
       if(x1Data[ne].length>prev && prev>=0) notifyNewX1();
@@ -814,7 +926,7 @@ async function sendIRI(){
 
   const logEntry={ts:fmtTs(ts), event:params.event_type, liid:params.liid, asn1:asn1Hex, ok:false, err:''};
   try{
-    const r=await fetch(LIS_BASE+'/x2/iri',{method:'POST',
+    const r=await apiFetch(LIS_BASE+'/x2/iri',{method:'POST',
       headers:{'Content-Type':'application/json'},body:JSON.stringify(body),
       signal:AbortSignal.timeout(5000)});
     logEntry.ok=r.ok;
@@ -873,7 +985,7 @@ async function sendCC(ne){
   const logEntry={ts:fmtTs(ts),liid:body.liid,ne,proto:body.payload.protocol,
     size:body.payload.size_bytes,ok:false,err:'',sftp:false,sftp_path:''};
   try{
-    const r=await fetch(LIS_BASE+'/x3/cc',{method:'POST',
+    const r=await apiFetch(LIS_BASE+'/x3/cc',{method:'POST',
       headers:{'Content-Type':'application/json'},body:JSON.stringify(body),
       signal:AbortSignal.timeout(8000)});
     const d=await r.json();
@@ -919,10 +1031,12 @@ function eCol(t){const m={ATTACH:'pill-green',DETACH:'pill-red',BEARER_ESTABLISH
   BEARER_RELEASE:'pill-orange',LOCATION_UPDATE:'pill-yellow',TAU:'pill-yellow',HANDOVER:'pill-orange',SMS:'pill-gray'};return m[t]||'pill-gray';}
 
 /* Init */
-setOperator();
-checkServer();
-fetchAllX1();
-x1PollTimer=setInterval(fetchAllX1,5000);
+if (requireAuth()) {
+  setOperator();
+  checkServer();
+  fetchAllX1();
+  x1PollTimer = setInterval(fetchAllX1, 5000);
+}
 </script>
 </body>
 </html>

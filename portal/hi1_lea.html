@@ -125,9 +125,52 @@
     padding:8px 12px;background:rgba(0,0,0,.2);border-radius:5px;border:1px solid var(--border);}
   .sftp-row-label{font-size:12px;color:var(--muted);}
   .sftp-row-val{font-family:monospace;font-size:12px;}
+  /* ── Login overlay ── */
+  #loginOverlay{position:fixed;inset:0;background:rgba(13,17,23,.97);display:flex;align-items:center;justify-content:center;z-index:9999;}
+  #loginOverlay.hidden{display:none;}
+  .login-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:36px 40px;width:380px;box-shadow:0 20px 60px rgba(0,0,0,.6);}
+  .login-logo{text-align:center;margin-bottom:24px;}
+  .login-logo .icon{font-size:40px;}
+  .login-logo h2{font-size:18px;font-weight:700;margin-top:8px;}
+  .login-logo p{font-size:12px;color:var(--muted);margin-top:4px;}
+  .login-field{margin-bottom:16px;}
+  .login-field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;}
+  .login-field input{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;font-family:monospace;outline:none;transition:border-color .2s;}
+  .login-field input:focus{border-color:var(--accent);}
+  .login-btn{width:100%;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;}
+  .login-btn:hover{opacity:.85;} .login-btn:disabled{opacity:.5;cursor:not-allowed;}
+  .login-err{color:var(--red);font-size:12px;text-align:center;margin-top:10px;min-height:18px;}
+  .login-hint{font-size:11px;color:var(--muted);text-align:center;margin-top:14px;border-top:1px solid var(--border);padding-top:12px;}
+  .user-badge{display:flex;align-items:center;gap:8px;font-size:12px;}
+  .user-badge .uname{color:var(--accent);font-family:monospace;font-weight:600;}
+  .user-badge .urole{color:var(--muted);font-size:11px;}
+  .btn-logout{padding:4px 12px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:4px;font-size:11px;cursor:pointer;}
+  .btn-logout:hover{border-color:var(--red);color:var(--red);}
 </style>
 </head>
 <body>
+
+<!-- ══ LOGIN OVERLAY ══ -->
+<div id="loginOverlay">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="icon">🏛️</div>
+      <h2>LEA Portal</h2>
+      <p>Law Enforcement Agency — India 4G LTE LIS<br>Authorised Personnel Only</p>
+    </div>
+    <div class="login-field">
+      <label>Username</label>
+      <input type="text" id="loginUser" autocomplete="username" placeholder="Enter username" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="login-field">
+      <label>Password</label>
+      <input type="password" id="loginPass" autocomplete="current-password" placeholder="Enter password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">Sign In</button>
+    <div class="login-err" id="loginErr"></div>
+    <div class="login-hint">⚠️ Unauthorised access is a criminal offence under<br>IT Act 2000 §66 &amp; Indian Telegraph Act 1885 §26</div>
+  </div>
+</div>
 
 <!-- ══ HEADER ══ -->
 <header>
@@ -141,6 +184,11 @@
   <div class="header-right">
     <span id="srvStatus" class="badge badge-red">● LIS Disconnected</span>
     <span class="sys-time" id="sysTime"></span>
+    <div class="user-badge" id="userBadge" style="display:none">
+      <span class="uname" id="userNameDisp"></span>
+      <span class="urole" id="userRoleDisp"></span>
+      <button class="btn-logout" onclick="doLogout()">Sign Out</button>
+    </div>
   </div>
 </header>
 
@@ -496,6 +544,68 @@ let SFTP_PASS  = '';
 let iriData = [], ccData = [];
 let iriPollTimer = null, ccPollTimer = null;
 
+/* ── Auth ── */
+function getToken(){ return sessionStorage.getItem('lis_token'); }
+function getUser(){  try{ return JSON.parse(sessionStorage.getItem('lis_user')||'null'); }catch{return null;} }
+
+async function doLogin() {
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const err  = document.getElementById('loginErr');
+  const btn  = document.getElementById('loginBtn');
+  if (!user || !pass) { err.textContent = 'Username and password required.'; return; }
+  btn.disabled = true; btn.textContent = 'Signing in…'; err.textContent = '';
+  try {
+    const r = await fetch(LIS_BASE + '/auth/login', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({username: user, password: pass}), signal: AbortSignal.timeout(8000)
+    });
+    const d = await r.json();
+    if (!r.ok) { err.textContent = d.detail || 'Login failed.'; return; }
+    sessionStorage.setItem('lis_token', d.token);
+    sessionStorage.setItem('lis_user', JSON.stringify({name: d.name, role: d.role, username: d.username}));
+    showAuthed(d);
+    document.getElementById('loginOverlay').classList.add('hidden');
+    checkServer();
+  } catch(e) {
+    err.textContent = 'Cannot reach LIS server. Check IP/port.';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Sign In';
+  }
+}
+
+function showAuthed(u) {
+  document.getElementById('userNameDisp').textContent = u.username || u.name;
+  document.getElementById('userRoleDisp').textContent = '[' + (u.role||'').toUpperCase() + ']';
+  document.getElementById('userBadge').style.display = 'flex';
+}
+
+async function doLogout() {
+  const tok = getToken();
+  if (tok) {
+    try { await fetch(LIS_BASE + '/auth/logout', {method:'POST', headers:{'Authorization':'Bearer '+tok}}); } catch{}
+  }
+  sessionStorage.removeItem('lis_token'); sessionStorage.removeItem('lis_user');
+  location.reload();
+}
+
+/* Auth-aware fetch wrapper */
+async function apiFetch(url, opts={}) {
+  const tok = getToken();
+  const headers = {'Authorization': tok ? 'Bearer '+tok : '', ...(opts.headers||{})};
+  const r = await fetch(url, {signal: AbortSignal.timeout(8000), ...opts, headers});
+  if (r.status === 401) { doLogout(); throw new Error('Session expired'); }
+  return r;
+}
+
+function requireAuth() {
+  const tok = getToken();
+  if (!tok) { document.getElementById('loginOverlay').classList.remove('hidden'); return false; }
+  const u = getUser();
+  if (u) showAuthed(u);
+  return true;
+}
+
 /* clock */
 function updateClock(){
   document.getElementById('sysTime').textContent='IST '+
@@ -539,7 +649,7 @@ function showTab(id){
 /* Server health check */
 async function checkServer(){
   try{
-    const r=await fetch(LIS_BASE+'/health',{signal:AbortSignal.timeout(4000)});
+    const r=await apiFetch(LIS_BASE+'/health',{signal:AbortSignal.timeout(4000)});
     document.getElementById('srvStatus').className=r.ok?'badge badge-green':'badge badge-red';
     document.getElementById('srvStatus').textContent=r.ok?'● LIS Connected':'● LIS Error';
   }catch{
@@ -547,7 +657,6 @@ async function checkServer(){
     document.getElementById('srvStatus').textContent='● LIS Disconnected';
   }
 }
-checkServer();
 
 /* LEA ID auto-update */
 function updateLeaId(){
@@ -674,7 +783,7 @@ async function activateWarrant(){
     reqText = xml;
     document.getElementById('soapReqBox').textContent = xml;
     try{
-      const resp = await fetch(LIS_BASE+'/hi1/soap', {
+      const resp = await apiFetch(LIS_BASE+'/hi1/soap', {
         method:'POST',
         headers:{'Content-Type':'text/xml;charset=UTF-8','SOAPAction':'urn:etsi:103120:hi1:2019#Activate'},
         body:xml
@@ -694,7 +803,7 @@ async function activateWarrant(){
     reqText = JSON.stringify(body,null,2);
     document.getElementById('soapReqBox').textContent = 'POST '+LIS_BASE+'/hi1/warrants/activate\n\n'+reqText;
     try{
-      const resp = await fetch(LIS_BASE+'/hi1/warrants/activate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const resp = await apiFetch(LIS_BASE+'/hi1/warrants/activate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       respText = await resp.text();
       ok = resp.ok;
     }catch(e){ respText='ERROR: '+e.message; }
@@ -715,7 +824,7 @@ function copyHi1Req(){
 /* ══ Deactivate ══ */
 async function loadWarrantsForDeact(){
   try{
-    const data=await (await fetch(LIS_BASE+'/hi1/warrants')).json();
+    const data=await (await apiFetch(LIS_BASE+'/hi1/warrants')).json();
     const list=Array.isArray(data)?data:(data.warrants||[]);
     const sel=document.getElementById('deactLiIdSelect');
     sel.innerHTML='<option value="">— Select warrant —</option>'+
@@ -734,7 +843,7 @@ async function deactivateWarrant(){
   const xml=buildDeactivateSoap(liid,leaid,reason);
   document.getElementById('deactReqBox').textContent=xml;
   try{
-    const resp=await fetch(LIS_BASE+'/hi1/warrants/deactivate',{method:'POST',
+    const resp=await apiFetch(LIS_BASE+'/hi1/warrants/deactivate',{method:'POST',
       headers:{'Content-Type':'application/json'},body:JSON.stringify({liid,lea_id:leaid})});
     document.getElementById('deactRespBox').textContent=resp.ok?'✓ Deactivated successfully\n\n'+await resp.text():await resp.text();
   }catch(e){document.getElementById('deactRespBox').textContent='ERROR: '+e.message;}
@@ -746,7 +855,7 @@ function stopIRIPoll(){ if(iriPollTimer){clearInterval(iriPollTimer);iriPollTime
 
 async function fetchIRI(){
   try{
-    const data=await (await fetch(LIS_BASE+'/x2/iri/log/db',{signal:AbortSignal.timeout(4000)})).json();
+    const data=await (await apiFetch(LIS_BASE+'/x2/iri/log/db',{signal:AbortSignal.timeout(4000)})).json();
     iriData=(Array.isArray(data)?data:(data.events||[])).reverse();
     renderIRI();
     const cnt=iriData.length;
@@ -823,7 +932,7 @@ function stopCCPoll(){ if(ccPollTimer){clearInterval(ccPollTimer);ccPollTimer=nu
 
 async function fetchCC(){
   try{
-    const data=await (await fetch(LIS_BASE+'/x3/cc/log/db',{signal:AbortSignal.timeout(4000)})).json();
+    const data=await (await apiFetch(LIS_BASE+'/x3/cc/log/db',{signal:AbortSignal.timeout(4000)})).json();
     ccData=(Array.isArray(data)?data:(data.packets||[])).reverse();
     renderCC();
     const cnt=ccData.length;
@@ -861,7 +970,7 @@ async function testSFTP(){
   const dt=document.getElementById('sftpDetail');
   st.textContent='● Testing…'; st.className='badge';
   try{
-    const r=await fetch(LIS_BASE+'/hi3/sftp/test',{method:'POST',
+    const r=await apiFetch(LIS_BASE+'/hi3/sftp/test',{method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({host,port:parseInt(SFTP_PORT),username:SFTP_USER,password:SFTP_PASS}),
       signal:AbortSignal.timeout(10000)});
@@ -880,7 +989,7 @@ async function fetchCCFiles(){
   const el=document.getElementById('ccFileList');
   el.innerHTML='<div class="log-empty">Loading file list…</div>';
   try{
-    const r=await fetch(LIS_BASE+'/hi3/files',{signal:AbortSignal.timeout(5000)});
+    const r=await apiFetch(LIS_BASE+'/hi3/files',{signal:AbortSignal.timeout(5000)});
     const data=await r.json();
     const files=data.files||[];
     if(!files.length){el.innerHTML='<div class="log-empty">No CC files received yet</div>';return;}
@@ -911,6 +1020,9 @@ function eCol(t){const m={ATTACH:'pill-green',DETACH:'pill-red',BEARER_ESTABLISH
   BEARER_RELEASE:'pill-orange',LOCATION_UPDATE:'pill-yellow',TAU:'pill-yellow',HANDOVER:'pill-orange',SMS:'pill-gray'};return m[t]||'pill-gray';}
 function neCol(n){if(!n)return'pill-gray';if(n.toLowerCase().includes('mme'))return'pill-blue';
   if(n.toLowerCase().includes('pgw'))return'pill-green';return'pill-yellow';}
+
+/* Init */
+if (requireAuth()) checkServer();
 </script>
 </body>
 </html>
