@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LIS Test Portal — 4G Lawful Interception</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0f172a; }
+    .card { background: #1e293b; border: 1px solid #334155; }
+    .input-field { background: #0f172a; border: 1px solid #475569; color: #e2e8f0; }
+    .input-field:focus { outline: none; border-color: #3b82f6; }
+    .tab-active { border-bottom: 2px solid #3b82f6; color: #3b82f6; }
+    .tab-inactive { color: #94a3b8; border-bottom: 2px solid transparent; }
+    .badge-active   { background:#15803d22; color:#4ade80; border:1px solid #166534; }
+    .badge-inactive { background:#7f1d1d22; color:#f87171; border:1px solid #7f1d1d; }
+    .badge-iri   { background:#1e3a5f; color:#93c5fd; border:1px solid #1d4ed8; }
+    .badge-cc    { background:#3b1f5e; color:#c4b5fd; border:1px solid #6d28d9; }
+    .badge-both  { background:#1c3a2e; color:#6ee7b7; border:1px solid #047857; }
+    .ne-badge    { background:#292524; color:#d6d3d1; border:1px solid #44403c; }
+    ::-webkit-scrollbar { width:6px; } ::-webkit-scrollbar-track { background:#1e293b; }
+    ::-webkit-scrollbar-thumb { background:#475569; border-radius:3px; }
+    .pulse { animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+  </style>
+</head>
+<body class="text-slate-200 min-h-screen">
+
+  <!-- Header -->
+  <div class="border-b border-slate-700 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded bg-blue-600 flex items-center justify-center text-sm font-bold">LI</div>
+      <div>
+        <div class="font-semibold text-white">LIS Test Portal</div>
+        <div class="text-xs text-slate-400">4G Lawful Interception — HI1 / X1 Interface</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-4 text-xs">
+      <div id="svc-admf"   class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-slate-500 pulse"></div>ADMF :8001</div>
+      <div id="svc-irimf"  class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-slate-500 pulse"></div>IRI-MF :8002</div>
+      <div id="svc-ccmf"   class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-slate-500 pulse"></div>CC-MF :8003</div>
+      <div id="svc-ne"     class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-slate-500 pulse"></div>NE-Sim :9001</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="border-b border-slate-700 px-6 flex gap-6 text-sm font-medium">
+    <button onclick="showTab('warrants')" id="tab-warrants" class="py-3 tab-active">Warrant Management (HI1)</button>
+    <button onclick="showTab('x1')"       id="tab-x1"       class="py-3 tab-inactive">NE Provisioning (X1)</button>
+    <button onclick="showTab('x2')"       id="tab-x2"       class="py-3 tab-inactive">IRI Simulator (X2)</button>
+  </div>
+
+  <!-- ═══════════ TAB: HI1 Warrants ═══════════ -->
+  <div id="pane-warrants" class="p-6 grid grid-cols-3 gap-6">
+
+    <!-- Activate Form -->
+    <div class="col-span-1 card rounded-xl p-5 space-y-4">
+      <div class="font-semibold text-white flex items-center gap-2">
+        <span class="text-blue-400">↓</span> Activate Warrant <span class="text-xs text-slate-500 font-normal ml-auto">HI1 → ADMF</span>
+      </div>
+
+      <div>
+        <label class="text-xs text-slate-400 mb-1 block">LIID *</label>
+        <input id="f-liid" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="LIID-2026-001"/>
+      </div>
+      <div>
+        <label class="text-xs text-slate-400 mb-1 block">LEA ID *</label>
+        <input id="f-leaid" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="LEA-UK-001"/>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-xs text-slate-400 mb-1 block">ID Type</label>
+          <select id="f-idtype" class="input-field w-full rounded-lg px-3 py-2 text-sm">
+            <option>MSISDN</option><option>IMSI</option><option>IMEI</option><option>IP_ADDRESS</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 mb-1 block">Target Value *</label>
+          <input id="f-target" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="447700900123"/>
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-slate-400 mb-1 block">Intercept Type</label>
+        <select id="f-itype" class="input-field w-full rounded-lg px-3 py-2 text-sm">
+          <option value="IRI_AND_CC">IRI + CC (Full)</option>
+          <option value="IRI_ONLY">IRI Only</option>
+          <option value="CC_ONLY">CC Only</option>
+        </select>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-xs text-slate-400 mb-1 block">Valid From</label>
+          <input id="f-vfrom" type="datetime-local" class="input-field w-full rounded-lg px-3 py-2 text-sm"/>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 mb-1 block">Valid Until</label>
+          <input id="f-vuntil" type="datetime-local" class="input-field w-full rounded-lg px-3 py-2 text-sm"/>
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-slate-400 mb-1 block">LEA Delivery Address (HI2/HI3)</label>
+        <input id="f-delivery" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="192.168.1.100:8443" value="127.0.0.1:8443"/>
+      </div>
+      <button onclick="activateWarrant()" class="w-full bg-blue-600 hover:bg-blue-500 text-white rounded-lg py-2 text-sm font-semibold transition">
+        Activate Warrant →
+      </button>
+      <div id="activate-msg" class="text-xs rounded-lg p-2 hidden"></div>
+    </div>
+
+    <!-- Active Warrants Table -->
+    <div class="col-span-2 card rounded-xl p-5">
+      <div class="flex items-center justify-between mb-4">
+        <div class="font-semibold text-white">Active Warrants</div>
+        <button onclick="loadWarrants()" class="text-xs text-blue-400 hover:text-blue-300">↻ Refresh</button>
+      </div>
+      <div class="overflow-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-xs text-slate-400 border-b border-slate-700">
+              <th class="text-left pb-2 pr-4">LIID</th>
+              <th class="text-left pb-2 pr-4">LEA</th>
+              <th class="text-left pb-2 pr-4">Target</th>
+              <th class="text-left pb-2 pr-4">Type</th>
+              <th class="text-left pb-2 pr-4">Valid Until</th>
+              <th class="text-left pb-2">Status</th>
+              <th class="pb-2"></th>
+            </tr>
+          </thead>
+          <tbody id="warrant-table">
+            <tr><td colspan="7" class="text-slate-500 text-xs py-6 text-center">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Deactivate -->
+    <div class="col-span-3 card rounded-xl p-4 flex items-center gap-4">
+      <span class="text-xs text-slate-400">Deactivate by LIID:</span>
+      <input id="d-liid"  class="input-field rounded-lg px-3 py-1.5 text-sm w-48" placeholder="LIID-2026-001"/>
+      <input id="d-leaid" class="input-field rounded-lg px-3 py-1.5 text-sm w-36" placeholder="LEA-UK-001"/>
+      <button onclick="deactivateWarrant()" class="bg-red-700 hover:bg-red-600 text-white rounded-lg px-4 py-1.5 text-sm font-semibold transition">
+        Deactivate
+      </button>
+      <div id="deactivate-msg" class="text-xs"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════ TAB: X1 NE Provisioning ═══════════ -->
+  <div id="pane-x1" class="p-6 hidden">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <div class="font-semibold text-white">X1 Provisioning Tasks</div>
+        <div class="text-xs text-slate-400 mt-0.5">Tasks sent from ADMF → MME / S-GW / P-GW</div>
+      </div>
+      <button onclick="loadX1Tasks()" class="text-xs text-blue-400 hover:text-blue-300">↻ Refresh</button>
+    </div>
+
+    <!-- NE Status cards -->
+    <div class="grid grid-cols-3 gap-4 mb-6">
+      <div id="ne-mme" class="card rounded-xl p-4">
+        <div class="text-xs text-slate-400 mb-1">MME — :9001</div>
+        <div class="text-lg font-bold text-white" id="ne-mme-count">—</div>
+        <div class="text-xs text-slate-500">X1 tasks received</div>
+      </div>
+      <div id="ne-sgw" class="card rounded-xl p-4">
+        <div class="text-xs text-slate-400 mb-1">S-GW — :9002</div>
+        <div class="text-lg font-bold text-white" id="ne-sgw-count">—</div>
+        <div class="text-xs text-slate-500">X1 tasks received</div>
+      </div>
+      <div id="ne-pgw" class="card rounded-xl p-4">
+        <div class="text-xs text-slate-400 mb-1">P-GW — :9003</div>
+        <div class="text-lg font-bold text-white" id="ne-pgw-count">—</div>
+        <div class="text-xs text-slate-500">X1 tasks received</div>
+      </div>
+    </div>
+
+    <div class="card rounded-xl p-5 overflow-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-xs text-slate-400 border-b border-slate-700">
+            <th class="text-left pb-2 pr-4">NE</th>
+            <th class="text-left pb-2 pr-4">Task ID</th>
+            <th class="text-left pb-2 pr-4">LIID</th>
+            <th class="text-left pb-2 pr-4">Target</th>
+            <th class="text-left pb-2 pr-4">Action</th>
+            <th class="text-left pb-2 pr-4">Intercept</th>
+            <th class="text-left pb-2">Received At</th>
+          </tr>
+        </thead>
+        <tbody id="x1-table">
+          <tr><td colspan="7" class="text-slate-500 text-xs py-6 text-center">No X1 tasks yet — activate a warrant to see provisioning.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════ TAB: X2 IRI Simulator ═══════════ -->
+  <div id="pane-x2" class="p-6 hidden grid grid-cols-2 gap-6">
+    <div class="card rounded-xl p-5 space-y-4">
+      <div class="font-semibold text-white">Send X2 IRI Event <span class="text-xs text-slate-500 font-normal">→ IRI-MF :8002</span></div>
+      <div>
+        <label class="text-xs text-slate-400 mb-1 block">LIID (must be active)</label>
+        <input id="x2-liid" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="LIID-2026-001"/>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-xs text-slate-400 mb-1 block">Event Type</label>
+          <select id="x2-event" class="input-field w-full rounded-lg px-3 py-2 text-sm">
+            <option>ATTACH</option><option>DETACH</option><option>BEARER_ESTABLISH</option>
+            <option>BEARER_RELEASE</option><option>LOCATION_UPDATE</option><option>SMS</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 mb-1 block">IMSI</label>
+          <input id="x2-imsi" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="234300000000001"/>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-xs text-slate-400 mb-1 block">Cell ID (ECGI)</label>
+          <input id="x2-cell" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="234-30-1234-56789"/>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 mb-1 block">UE IP</label>
+          <input id="x2-ueip" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="10.0.0.1"/>
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-slate-400 mb-1 block">APN</label>
+        <input id="x2-apn" class="input-field w-full rounded-lg px-3 py-2 text-sm" placeholder="internet"/>
+      </div>
+      <button onclick="sendX2Event()" class="w-full bg-red-700 hover:bg-red-600 text-white rounded-lg py-2 text-sm font-semibold transition">
+        Send IRI Event →
+      </button>
+      <div id="x2-msg" class="text-xs rounded-lg p-2 hidden"></div>
+    </div>
+
+    <div class="card rounded-xl p-5">
+      <div class="flex items-center justify-between mb-4">
+        <div class="font-semibold text-white">IRI Events Log</div>
+        <button onclick="clearX2Log()" class="text-xs text-slate-400 hover:text-slate-300">Clear</button>
+      </div>
+      <div id="x2-log" class="space-y-2 overflow-auto max-h-96 text-xs font-mono">
+        <div class="text-slate-500">No events yet...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Standalone mode — all services on one port
+    const BASE   = 'http://localhost:8001';
+    const ADMF   = BASE;
+    const IRIMF  = BASE;
+    const NE_MME = BASE;
+    const NE_SGW = BASE;
+    const NE_PGW = BASE;
+
+    // ─── Tab switching ───────────────────────────────────────────
+    function showTab(t) {
+      ['warrants','x1','x2'].forEach(id => {
+        document.getElementById('pane-' + id).classList.toggle('hidden', id !== t);
+        document.getElementById('tab-'  + id).className = 'py-3 ' + (id === t ? 'tab-active' : 'tab-inactive');
+      });
+      if (t === 'warrants') loadWarrants();
+      if (t === 'x1')       loadX1Tasks();
+    }
+
+    // ─── Service health ──────────────────────────────────────────
+    async function checkHealth(id) {
+      const el = document.getElementById('svc-' + id).querySelector('div');
+      try {
+        const r = await fetch(BASE + '/health', { signal: AbortSignal.timeout(2000) });
+        el.className = r.ok ? 'w-2 h-2 rounded-full bg-green-400' : 'w-2 h-2 rounded-full bg-yellow-400';
+      } catch { el.className = 'w-2 h-2 rounded-full bg-red-500'; }
+    }
+    function pollHealth() {
+      ['admf','irimf','ccmf','ne'].forEach(checkHealth);
+    }
+
+    // ─── Warrant activate ────────────────────────────────────────
+    async function activateWarrant() {
+      const msg = document.getElementById('activate-msg');
+      const now = new Date();
+      const body = {
+        liid:             document.getElementById('f-liid').value.trim(),
+        lea_id:           document.getElementById('f-leaid').value.trim(),
+        target: {
+          id_type: document.getElementById('f-idtype').value,
+          value:   document.getElementById('f-target').value.trim(),
+        },
+        intercept_type:   document.getElementById('f-itype').value,
+        valid_from:       (document.getElementById('f-vfrom').value  || now.toISOString()),
+        valid_until:      (document.getElementById('f-vuntil').value || new Date(now.getTime()+86400000*180).toISOString()),
+        delivery_address: document.getElementById('f-delivery').value.trim(),
+      };
+      if (!body.liid || !body.lea_id || !body.target.value) {
+        showMsg(msg, 'LIID, LEA ID and Target Value are required.', false); return;
+      }
+      try {
+        const r = await fetch(ADMF + '/hi1/warrants/activate', {
+          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+        });
+        const d = await r.json();
+        showMsg(msg, r.ok ? `✓ ${d.message}` : `✗ ${d.detail || JSON.stringify(d)}`, r.ok);
+        if (r.ok) { loadWarrants(); setTimeout(() => loadX1Tasks(), 500); }
+      } catch(e) { showMsg(msg, '✗ ADMF unreachable — is it running?', false); }
+    }
+
+    // ─── Warrant deactivate ──────────────────────────────────────
+    async function deactivateWarrant() {
+      const msg = document.getElementById('deactivate-msg');
+      const body = { liid: document.getElementById('d-liid').value.trim(), lea_id: document.getElementById('d-leaid').value.trim() };
+      if (!body.liid || !body.lea_id) { msg.textContent = 'Enter LIID and LEA ID'; msg.className='text-xs text-yellow-400'; return; }
+      try {
+        const r = await fetch(ADMF + '/hi1/warrants/deactivate', {
+          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+        });
+        const d = await r.json();
+        msg.textContent = r.ok ? `✓ Deactivated ${body.liid}` : `✗ ${d.detail}`;
+        msg.className = 'text-xs ' + (r.ok ? 'text-green-400' : 'text-red-400');
+        if (r.ok) loadWarrants();
+      } catch { msg.textContent = '✗ ADMF unreachable'; msg.className='text-xs text-red-400'; }
+    }
+
+    // ─── Load warrants ───────────────────────────────────────────
+    async function loadWarrants() {
+      const tb = document.getElementById('warrant-table');
+      try {
+        const r  = await fetch(ADMF + '/hi1/warrants');
+        const ws = await r.json();
+        if (!ws.length) { tb.innerHTML = '<tr><td colspan="7" class="text-slate-500 text-xs py-6 text-center">No active warrants.</td></tr>'; return; }
+        tb.innerHTML = ws.map(w => `
+          <tr class="border-b border-slate-800 hover:bg-slate-800/30">
+            <td class="py-2 pr-4 font-mono text-xs text-blue-300">${w.liid}</td>
+            <td class="py-2 pr-4 text-xs">${w.lea_id}</td>
+            <td class="py-2 pr-4 font-mono text-xs">${w.target_value}</td>
+            <td class="py-2 pr-4"><span class="text-xs px-2 py-0.5 rounded-full ${itypeBadge(w.intercept_type)}">${w.intercept_type}</span></td>
+            <td class="py-2 pr-4 text-xs text-slate-400">${fmtDate(w.valid_until)}</td>
+            <td class="py-2 pr-4"><span class="text-xs px-2 py-0.5 rounded-full ${w.active ? 'badge-active' : 'badge-inactive'}">${w.active ? 'Active' : 'Inactive'}</span></td>
+            <td class="py-2"><button onclick="quickDeactivate('${w.liid}','${w.lea_id}')" class="text-xs text-red-400 hover:text-red-300">Deactivate</button></td>
+          </tr>`).join('');
+      } catch { tb.innerHTML = '<tr><td colspan="7" class="text-red-400 text-xs py-4 text-center">ADMF unreachable — start services first.</td></tr>'; }
+    }
+
+    function quickDeactivate(liid, leaId) {
+      document.getElementById('d-liid').value  = liid;
+      document.getElementById('d-leaid').value = leaId;
+      deactivateWarrant();
+    }
+
+    // ─── X1 Tasks ────────────────────────────────────────────────
+    async function loadX1Tasks() {
+      const tb = document.getElementById('x1-table');
+      let allTasks = [];
+      const nes = [
+        { name:'MME', countId:'ne-mme-count' },
+        { name:'SGW', countId:'ne-sgw-count' },
+        { name:'PGW', countId:'ne-pgw-count' },
+      ];
+      for (const ne of nes) {
+        try {
+          const r = await fetch(BASE + '/x1/tasks/' + ne.name, { signal: AbortSignal.timeout(2000) });
+          const tasks = await r.json();
+          document.getElementById(ne.countId).textContent = tasks.length;
+          tasks.forEach(t => allTasks.push({ ...t, ne_name: ne.name }));
+        } catch { document.getElementById(ne.countId).textContent = '—'; }
+      }
+      if (!allTasks.length) {
+        tb.innerHTML = '<tr><td colspan="7" class="text-slate-500 text-xs py-6 text-center">No X1 tasks yet — activate a warrant first.</td></tr>'; return;
+      }
+      allTasks.sort((a,b) => new Date(b.received_at||0) - new Date(a.received_at||0));
+      tb.innerHTML = allTasks.map(t => `
+        <tr class="border-b border-slate-800 hover:bg-slate-800/30">
+          <td class="py-2 pr-4"><span class="text-xs px-2 py-0.5 rounded ne-badge">${t.ne_name}</span></td>
+          <td class="py-2 pr-4 font-mono text-xs text-slate-400">${(t.task_id||'').substring(0,12)}…</td>
+          <td class="py-2 pr-4 font-mono text-xs text-blue-300">${t.liid}</td>
+          <td class="py-2 pr-4 font-mono text-xs">${t.target_value}</td>
+          <td class="py-2 pr-4"><span class="text-xs px-2 py-0.5 rounded-full ${t.action==='ACTIVATE'?'badge-active':'badge-inactive'}">${t.action}</span></td>
+          <td class="py-2 pr-4 text-xs text-slate-400">${t.intercept_type}</td>
+          <td class="py-2 text-xs text-slate-400">${fmtDate(t.received_at)}</td>
+        </tr>`).join('');
+    }
+
+    // ─── X2 IRI Events ───────────────────────────────────────────
+    async function sendX2Event() {
+      const msg = document.getElementById('x2-msg');
+      const body = {
+        liid:            document.getElementById('x2-liid').value.trim(),
+        sequence_number: Math.floor(Math.random()*9999),
+        event_type:      document.getElementById('x2-event').value,
+        timestamp:       new Date().toISOString(),
+        imsi:            document.getElementById('x2-imsi').value.trim() || null,
+        cell_id:         document.getElementById('x2-cell').value.trim() || null,
+        ue_ip:           document.getElementById('x2-ueip').value.trim() || null,
+        apn:             document.getElementById('x2-apn').value.trim() || null,
+      };
+      if (!body.liid) { showMsg(msg, 'LIID is required', false); return; }
+      try {
+        const r = await fetch(IRIMF + '/x2/iri', {
+          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+        });
+        const d = await r.json();
+        showMsg(msg, r.ok ? `✓ Accepted — seq ${d.seq}` : `✗ ${d.detail}`, r.ok);
+        if (r.ok) appendX2Log(body, d);
+      } catch { showMsg(msg, '✗ IRI-MF unreachable — is it running?', false); }
+    }
+
+    function appendX2Log(evt, resp) {
+      const log = document.getElementById('x2-log');
+      const old = log.querySelector('.text-slate-500');
+      if (old) old.remove();
+      const div = document.createElement('div');
+      div.className = 'bg-slate-800 rounded p-2 border border-slate-700';
+      div.innerHTML = `<div class="text-green-400 mb-1">[${new Date().toLocaleTimeString()}] ${evt.event_type} accepted (seq ${resp.seq})</div>
+        <div class="text-slate-400">LIID: ${evt.liid} | IMSI: ${evt.imsi||'—'} | Cell: ${evt.cell_id||'—'} | UE-IP: ${evt.ue_ip||'—'}</div>`;
+      log.prepend(div);
+    }
+
+    function clearX2Log() {
+      document.getElementById('x2-log').innerHTML = '<div class="text-slate-500">No events yet...</div>';
+    }
+
+    // ─── Helpers ─────────────────────────────────────────────────
+    function showMsg(el, text, ok) {
+      el.textContent = text;
+      el.className = 'text-xs rounded-lg p-2 ' + (ok ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400');
+      el.classList.remove('hidden');
+    }
+    function fmtDate(d) { return d ? new Date(d).toLocaleString() : '—'; }
+    function itypeBadge(t) { return t==='IRI_ONLY'?'badge-iri':t==='CC_ONLY'?'badge-cc':'badge-both'; }
+
+    // ─── Set default dates ───────────────────────────────────────
+    function setDefaults() {
+      const now   = new Date();
+      const later = new Date(now.getTime() + 86400000 * 180);
+      const fmt   = d => d.toISOString().slice(0,16);
+      document.getElementById('f-vfrom').value  = fmt(now);
+      document.getElementById('f-vuntil').value = fmt(later);
+    }
+
+    // ─── Init ────────────────────────────────────────────────────
+    setDefaults();
+    pollHealth();
+    setInterval(pollHealth, 5000);
+    loadWarrants();
+  </script>
+</body>
+</html>

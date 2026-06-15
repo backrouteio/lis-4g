@@ -1,0 +1,86 @@
+version: "3.9"
+
+services:
+
+  # ── Infrastructure ──────────────────────────────────────────────────────── #
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: lis
+      POSTGRES_PASSWORD: lis_secret
+      POSTGRES_DB: lis_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    depends_on: [zookeeper]
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "9092:9092"
+
+  # ── LIS Services ─────────────────────────────────────────────────────────── #
+
+  admf:
+    build: .
+    command: uvicorn admf.main:app --host 0.0.0.0 --port 8001
+    ports:
+      - "8001:8001"
+    environment:
+      POSTGRES_DSN: postgresql://lis:lis_secret@postgres:5432/lis_db
+      REDIS_HOST: redis
+      KAFKA_BROKERS: kafka:9092
+    depends_on: [postgres, redis, kafka]
+
+  iri_mf:
+    build: .
+    command: uvicorn iri_mf.main:app --host 0.0.0.0 --port 8002
+    ports:
+      - "8002:8002"
+    environment:
+      POSTGRES_DSN: postgresql://lis:lis_secret@postgres:5432/lis_db
+      REDIS_HOST: redis
+      KAFKA_BROKERS: kafka:9092
+    depends_on: [postgres, redis, kafka]
+
+  cc_mf:
+    build: .
+    command: uvicorn cc_mf.main:app --host 0.0.0.0 --port 8003
+    ports:
+      - "8003:8003"
+    environment:
+      POSTGRES_DSN: postgresql://lis:lis_secret@postgres:5432/lis_db
+      REDIS_HOST: redis
+      KAFKA_BROKERS: kafka:9092
+    depends_on: [postgres, redis, kafka]
+
+  hi_gateway:
+    build: .
+    command: python -m hi_gateway.main
+    environment:
+      POSTGRES_DSN: postgresql://lis:lis_secret@postgres:5432/lis_db
+      KAFKA_BROKERS: kafka:9092
+    depends_on: [postgres, kafka]
+
+volumes:
+  postgres_data:
