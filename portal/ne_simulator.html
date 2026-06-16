@@ -206,7 +206,7 @@
 <!-- ══ CONFIG BAR ══ -->
 <div class="config-bar">
   <span class="cfg-label">LIS Server:</span>
-  <input class="cfg-input" id="cfgLisIp" value="76.13.211.64" placeholder="LIS IP">
+  <input class="cfg-input" id="cfgLisIp" value="" placeholder="LIS IP">
   <input class="cfg-input" id="cfgLisPort" value="8001" placeholder="Port" style="width:65px">
   <span style="color:var(--border)">|</span>
   <span class="cfg-label">Indian Operator:</span>
@@ -552,7 +552,7 @@
 'use strict';
 
 /* ══ Config ══ */
-let LIS_BASE = 'http://76.13.211.64:8001';
+let LIS_BASE = `http://${window.location.hostname}:8001`;
 
 /* ── Auth ── */
 function getToken(){ return sessionStorage.getItem('lis_token'); }

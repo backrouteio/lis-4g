@@ -196,7 +196,7 @@
 <div class="config-bar">
   <div class="cfg-group">
     <label>LIS Server:</label>
-    <input class="cfg-input" id="cfgLisIp" value="76.13.211.64" placeholder="LIS IP">
+    <input class="cfg-input" id="cfgLisIp" value="" placeholder="LIS IP">
     <input class="cfg-input" id="cfgLisPort" value="8001" placeholder="Port" style="width:65px">
   </div>
   <span class="sep">|</span>
@@ -534,7 +534,7 @@
 'use strict';
 
 /* ══ Config ══ */
-let LIS_BASE   = 'http://76.13.211.64:8001';
+let LIS_BASE   = `http://${window.location.hostname}:8001`;
 let LEA_PORT   = '8443';
 let SFTP_HOST  = '';
 let SFTP_PORT  = '2222';

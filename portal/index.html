@@ -191,7 +191,7 @@
 <!-- ══ CONFIG BAR ══ -->
 <div class="config-bar">
   <label>⚙️ LIS Server:</label>
-  <input id="cfgIp"   value="76.13.211.64"  placeholder="LIS IP">
+  <input id="cfgIp"   value=""  placeholder="LIS IP">
   <input id="cfgPort" value="8001" placeholder="Port" style="width:70px">
   <button class="btn-sm btn-primary" onclick="saveConfig()">Connect</button>
   <span style="color:var(--border)">|</span>
@@ -325,7 +325,7 @@
 
 <script>
 'use strict';
-let LIS_BASE = 'http://76.13.211.64:8001';
+let LIS_BASE = `http://${window.location.hostname}:8001`;
 let refreshTimer = null;
 let iriData = [], ccData = [];
 
