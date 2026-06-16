@@ -20,18 +20,9 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=lea-agent
 
-# Resource limits
 LimitNOFILE=65536
 LimitNPROC=32768
 
-# Security hardening
-PrivateTmp=yes
-NoNewPrivileges=yes
-ProtectSystem=strict
-ProtectHome=yes
-ReadWritePaths=/root/lis-4g /var/log /tmp
-
-# Environment
 Environment="PYTHONUNBUFFERED=1"
 Environment="TZ=Asia/Kolkata"
 
