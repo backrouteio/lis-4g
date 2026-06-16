@@ -158,6 +158,16 @@
       <h2>LEA Portal</h2>
       <p>Law Enforcement Agency — India 4G LTE LIS<br>Authorised Personnel Only</p>
     </div>
+    <div class="login-field" style="display:flex;gap:8px;">
+      <div style="flex:2;">
+        <label>LIS Server IP</label>
+        <input type="text" id="loginLisIp" placeholder="e.g. 10.80.20.56" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div style="flex:1;">
+        <label>Port</label>
+        <input type="text" id="loginLisPort" placeholder="8001" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+    </div>
     <div class="login-field">
       <label>Username</label>
       <input type="text" id="loginUser" autocomplete="username" placeholder="Enter username" onkeydown="if(event.key==='Enter')doLogin()">
@@ -534,7 +544,7 @@
 'use strict';
 
 /* ══ Config ══ */
-let LIS_BASE   = `http://${window.location.hostname}:8001`;
+let LIS_BASE   = localStorage.getItem('lea_lis_base') || '';
 let LEA_PORT   = '8443';
 let SFTP_HOST  = '';
 let SFTP_PORT  = '2222';
@@ -549,11 +559,19 @@ function getToken(){ return sessionStorage.getItem('lis_token'); }
 function getUser(){  try{ return JSON.parse(sessionStorage.getItem('lis_user')||'null'); }catch{return null;} }
 
 async function doLogin() {
+  const lisIp   = document.getElementById('loginLisIp').value.trim();
+  const lisPort = document.getElementById('loginLisPort').value.trim() || '8001';
   const user = document.getElementById('loginUser').value.trim();
   const pass = document.getElementById('loginPass').value;
   const err  = document.getElementById('loginErr');
   const btn  = document.getElementById('loginBtn');
+  if (!lisIp) { err.textContent = 'LIS Server IP required.'; return; }
   if (!user || !pass) { err.textContent = 'Username and password required.'; return; }
+  LIS_BASE = `http://${lisIp}:${lisPort}`;
+  localStorage.setItem('lea_lis_base', LIS_BASE);
+  const cfgIpEl = document.getElementById('cfgLisIp'), cfgPortEl = document.getElementById('cfgLisPort');
+  if (cfgIpEl) cfgIpEl.value = lisIp;
+  if (cfgPortEl) cfgPortEl.value = lisPort;
   btn.disabled = true; btn.textContent = 'Signing in…'; err.textContent = '';
   try {
     const r = await fetch(LIS_BASE + '/auth/login', {
@@ -600,7 +618,18 @@ async function apiFetch(url, opts={}) {
 
 function requireAuth() {
   const tok = getToken();
-  if (!tok) { document.getElementById('loginOverlay').classList.remove('hidden'); return false; }
+  if (!tok) {
+    document.getElementById('loginOverlay').classList.remove('hidden');
+    const savedBase = localStorage.getItem('lea_lis_base');
+    if (savedBase) {
+      try {
+        const u = new URL(savedBase);
+        document.getElementById('loginLisIp').value = u.hostname;
+        document.getElementById('loginLisPort').value = u.port || '8001';
+      } catch {}
+    }
+    return false;
+  }
   const u = getUser();
   if (u) showAuthed(u);
   return true;
@@ -624,6 +653,7 @@ setInterval(updateClock,1000); updateClock();
 
 function saveConfig(){
   LIS_BASE  = `http://${document.getElementById('cfgLisIp').value.trim()}:${document.getElementById('cfgLisPort').value.trim()}`;
+  localStorage.setItem('lea_lis_base', LIS_BASE);
   LEA_PORT  = document.getElementById('cfgLeaPort').value.trim();
   SFTP_HOST = document.getElementById('cfgSftpHost').value.trim();
   SFTP_PORT = document.getElementById('cfgSftpPort').value.trim();
@@ -1022,6 +1052,16 @@ function neCol(n){if(!n)return'pill-gray';if(n.toLowerCase().includes('mme'))ret
   if(n.toLowerCase().includes('pgw'))return'pill-green';return'pill-yellow';}
 
 /* Init */
+(function(){
+  try {
+    if (LIS_BASE) {
+      const u = new URL(LIS_BASE);
+      const ipEl = document.getElementById('cfgLisIp'), portEl = document.getElementById('cfgLisPort');
+      if (ipEl) ipEl.value = u.hostname;
+      if (portEl) portEl.value = u.port || '8001';
+    }
+  } catch {}
+})();
 if (requireAuth()) checkServer();
 </script>
 </body>
