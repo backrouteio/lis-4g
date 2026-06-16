@@ -23,7 +23,9 @@ India context:
 import hashlib
 import json
 import os
+import socket
 import sqlite3
+import struct
 import threading
 import uuid
 import logging
@@ -1376,19 +1378,320 @@ def serve_portal():
 
 
 # ═══════════════════════════════════════════════════════════════
+#  X2 TCP SERVER  (ASN.1 BER IRI — 3GPP TS 33.108 Annex B.9)
+# ═══════════════════════════════════════════════════════════════
+#
+# Protocol: each message is framed as:
+#   [4 bytes big-endian length][ASN.1 BER payload]
+# Compatible with real PGW/GGSN X2 implementations.
+
+def _run_x2_tcp_server(port: int):
+    """
+    TCP listener for X2 IRI messages from NE.
+    Framing: TPKT per RFC 1006 / RFC 2126 (ISO Transport on TCP).
+    Encoding: ASN.1 BER per TS 33.108 Annex B.9.
+    Also accepts legacy 4-byte raw length prefix (auto-detected).
+    """
+    try:
+        srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        srv.bind(("0.0.0.0", port))
+        srv.listen(10)
+        logger.info("X2 TCP server 0.0.0.0:%d (TPKT/RFC1006 + ASN.1 BER)", port)
+        while True:
+            try:
+                conn, addr = srv.accept()
+                logger.info("X2 TCP: NE connected from %s:%d", *addr)
+                t = threading.Thread(target=_handle_x2_client, args=(conn, addr), daemon=True)
+                t.start()
+            except Exception as e:
+                logger.error("X2 TCP accept error: %s", e)
+                time.sleep(1)
+    except Exception as e:
+        logger.error("X2 TCP server failed to start on port %d: %s", port, e)
+
+
+def _handle_x2_client(conn: socket.socket, addr):
+    """
+    Handle a single NE X2 TCP connection.
+    Parses TPKT frames (RFC 1006, version byte = 0x03) to extract ASN.1 BER IRI.
+    Falls back to raw 4-byte big-endian length prefix for legacy senders.
+    """
+    ne_addr = f"{addr[0]}:{addr[1]}"
+    buf = b""
+    TPKT_VER = 0x03
+    try:
+        while True:
+            chunk = conn.recv(4096)
+            if not chunk:
+                logger.info("X2 TCP: NE %s disconnected", ne_addr)
+                break
+            buf += chunk
+            # Drain all complete frames from buffer
+            while len(buf) >= 4:
+                first_byte = buf[0]
+                if first_byte == TPKT_VER:
+                    # ── TPKT frame (RFC 1006/2126) ──
+                    # Header: version(1) reserved(1) total_length(2)  — total_length includes header
+                    _ver, _res, total_len = struct.unpack(">BBH", buf[:4])
+                    if total_len < 4:
+                        buf = buf[1:]   # bad frame, skip
+                        continue
+                    if len(buf) < total_len:
+                        break           # wait for rest
+                    asn1_bytes = buf[4:total_len]
+                    buf        = buf[total_len:]
+                else:
+                    # ── Legacy: raw 4-byte big-endian length prefix ──
+                    msg_len = struct.unpack(">I", buf[:4])[0]
+                    if msg_len > 65536:
+                        buf = buf[1:]   # sanity: skip bad byte
+                        continue
+                    if len(buf) < 4 + msg_len:
+                        break
+                    asn1_bytes = buf[4:4 + msg_len]
+                    buf        = buf[4 + msg_len:]
+
+                try:
+                    _process_x2_tcp_iri(asn1_bytes, ne_addr)
+                except Exception as e:
+                    logger.warning("X2 TCP: IRI decode error from %s: %s", ne_addr, e)
+    except Exception as e:
+        logger.warning("X2 TCP client %s error: %s", ne_addr, e)
+    finally:
+        try: conn.close()
+        except: pass
+
+
+def _process_x2_tcp_iri(asn1_bytes: bytes, ne_addr: str):
+    """Decode ASN.1 BER IRI received over TCP and store/deliver same as HTTP X2."""
+    asn1_hex = asn1_bytes.hex()
+    decoded  = _ber_decode_iri(asn1_hex)
+    ts       = datetime.utcnow().isoformat()
+    liid     = decoded.get("liid", "UNKNOWN")
+    event    = decoded.get("event_type", "UNKNOWN")
+    seq      = decoded.get("seq", 0)
+
+    payload = {
+        "liid":     liid,
+        "event_type": event,
+        "imsi":     decoded.get("imsi", ""),
+        "msisdn":   decoded.get("msisdn", ""),
+        "cell_id":  decoded.get("cell_id", ""),
+        "ue_ip":    decoded.get("ue_ip", ""),
+        "apn":      decoded.get("apn", ""),
+        "ts":       ts,
+        "transport": "X2_TCP_ASN1_BER",
+        "ne_source": ne_addr,
+    }
+
+    with _lock:
+        _iri_events.append(payload)
+    logger.info("X2 TCP: IRI event liid=%s type=%s from=%s seq=%d", liid, event, ne_addr, seq)
+
+    with db() as d:
+        d.execute(
+            "INSERT INTO iri_log(liid,event_type,ts,asn1_hex,ne_source,imsi,payload,encoding)"
+            " VALUES(?,?,?,?,?,?,?,?)",
+            (liid, event, ts, asn1_hex, ne_addr,
+             decoded.get("imsi",""), json.dumps(payload), "ASN1_BER_TCP")
+        )
+
+    # Push HI2 to LEA asynchronously (same path as HTTP X2)
+    _hi2_push_async(liid, payload)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  X3 UDP SERVER  (ULIC header — 3GPP TS 33.108 Annex C)
+# ═══════════════════════════════════════════════════════════════
+#
+# Supports ULICv08 (version byte = 0x08) and ULICv1 (version byte = 0x01)
+#
+# ULICv08 frame layout (big-endian):
+#   Offset  Size  Field
+#      0     1    Version (0x08)
+#      1     1    Header Length (bytes, including version & hdr_len fields)
+#      2     2    PDU Length (payload only)
+#      4     4    Sequence Number
+#      8     4    Timestamp (UTC seconds since epoch)
+#     12     1    LI-ID Length (N)
+#     13     N    LI-ID (ASCII)
+#   13+N     1    Direction (0=from-target/uplink, 1=to-target/downlink)
+#   14+N     1    Content Type (1=IPv4, 2=IPv6, 3=Ethernet)
+#   15+N     ...  CC Payload
+#
+# ULICv1 frame layout:
+#   Offset  Size  Field
+#      0     1    Version (0x01)
+#      1     1    Header Length
+#      2     2    PDU Length
+#      4     4    Sequence Number
+#      8     4    Timestamp
+#     12     2    LI-ID Length (N)
+#     14     N    LI-ID
+#   14+N     1    Direction
+#   15+N     1    Content Type
+#   16+N     ...  CC Payload
+
+ULIC_VERSION_V0  = 0x00   # TS 33.108 §C.1.2 — UDP standard
+ULIC_VERSION_V08 = 0x08   # Nokia/ALU vendor — UDP extended
+ULIC_VERSION_V1  = 0x01   # TS 33.108 §C.1.3 — TCP
+ULIC_VERSION_V09 = 0x09   # TS 33.108 ULICv09
+ULIC_DIRECTION   = {0: "UPLINK (from target)", 1: "DOWNLINK (to target)"}
+ULIC_CONTENT     = {1: "IPv4", 2: "IPv6", 3: "Ethernet", 4: "TCP", 5: "UDP"}
+
+# ULIC versions that use a 1-byte liid_len field
+_ULIC_1BYTE_LIID = {ULIC_VERSION_V0, ULIC_VERSION_V08}
+# ULIC versions that use a 2-byte liid_len field
+_ULIC_2BYTE_LIID = {ULIC_VERSION_V1, ULIC_VERSION_V09}
+
+_ULIC_VER_NAMES = {
+    ULIC_VERSION_V0:  "ULICv0",
+    ULIC_VERSION_V08: "ULICv08",
+    ULIC_VERSION_V1:  "ULICv1",
+    ULIC_VERSION_V09: "ULICv09",
+}
+
+
+def _parse_ulic_header(data: bytes) -> dict:
+    """
+    Parse ULIC header (any version).
+    Versions v0/v08: 1-byte liid_len (TS 33.108 §C.1.2, Nokia ext)
+    Versions v1/v09: 2-byte liid_len (TS 33.108 §C.1.3, v09)
+    Returns dict with header fields + payload_off.
+    """
+    if len(data) < 13:
+        raise ValueError(f"ULIC packet too short: {len(data)} bytes")
+
+    version   = data[0]
+    hdr_len   = data[1]
+    pdu_len   = struct.unpack(">H", data[2:4])[0]
+    seq_num   = struct.unpack(">I", data[4:8])[0]
+    timestamp = struct.unpack(">I", data[8:12])[0]
+
+    if version in _ULIC_1BYTE_LIID:
+        liid_len   = data[12]
+        liid_start = 13
+    elif version in _ULIC_2BYTE_LIID:
+        if len(data) < 14:
+            raise ValueError("ULIC v1/v09 packet too short for 2-byte liid_len")
+        liid_len   = struct.unpack(">H", data[12:14])[0]
+        liid_start = 14
+    else:
+        # Unknown version: try 1-byte liid_len as best-effort
+        liid_len   = data[12]
+        liid_start = 13
+        logger.debug("ULIC: unknown version 0x%02x — trying 1-byte liid_len", version)
+
+    liid_end     = liid_start + liid_len
+    liid         = data[liid_start:liid_end].decode("ascii", errors="replace")
+    direction    = data[liid_end]     if liid_end     < len(data) else 0
+    content_type = data[liid_end + 1] if liid_end + 1 < len(data) else 0
+    payload_off  = liid_end + 2
+
+    return {
+        "version":      _ULIC_VER_NAMES.get(version, f"ULICv0x{version:02x}"),
+        "version_byte": version,
+        "hdr_len":      hdr_len,
+        "pdu_len":      pdu_len,
+        "seq_num":      seq_num,
+        "timestamp":    timestamp,
+        "liid":         liid,
+        "direction":    ULIC_DIRECTION.get(direction, f"0x{direction:02x}"),
+        "content_type": ULIC_CONTENT.get(content_type, f"0x{content_type:02x}"),
+        "payload_off":  payload_off,
+    }
+
+
+def _run_x3_udp_server(port: int):
+    """UDP listener for X3 CC content from NE with ULIC header (TS 33.108 Annex C)."""
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(("0.0.0.0", port))
+        logger.info("X3 UDP server 0.0.0.0:%d (ULICv0/v08/v09/v1 per TS 33.108 Annex C)", port)
+        while True:
+            try:
+                data, addr = sock.recvfrom(65535)
+                threading.Thread(
+                    target=_process_x3_ulic_packet,
+                    args=(data, addr), daemon=True
+                ).start()
+            except Exception as e:
+                logger.error("X3 UDP recv error: %s", e)
+    except Exception as e:
+        logger.error("X3 UDP server failed to start on port %d: %s", port, e)
+
+
+def _process_x3_ulic_packet(data: bytes, addr):
+    """Parse ULIC header and store CC content, then deliver via SFTP."""
+    ne_addr = f"{addr[0]}:{addr[1]}"
+    try:
+        hdr     = _parse_ulic_header(data)
+        payload = data[hdr["payload_off"]:]
+        ts      = datetime.utcnow().isoformat()
+        liid    = hdr["liid"] or "UNKNOWN"
+        seq     = hdr["seq_num"]
+
+        cc_info = {
+            "liid":         liid,
+            "ne_source":    ne_addr,
+            "ulic_version": hdr["version"],
+            "direction":    hdr["direction"],
+            "content_type": hdr["content_type"],
+            "seq":          seq,
+            "ts":           ts,
+            "size_bytes":   len(payload),
+            "protocol":     hdr["content_type"],
+            "transport":    "X3_UDP_ULIC",
+        }
+
+        logger.info("X3 UDP ULIC: liid=%s %s seq=%d size=%dB from=%s",
+                    liid, hdr["version"], seq, len(payload), ne_addr)
+
+        with _lock:
+            _cc_events.append(cc_info)
+
+        # Store in DB
+        with db() as d:
+            d.execute(
+                "INSERT INTO cc_log(liid,ts,ne_source,payload,sftp_delivered)"
+                " VALUES(?,?,?,?,0)",
+                (liid, ts, ne_addr, json.dumps(cc_info))
+            )
+
+        # SFTP delivery to LEA
+        if _sftp_config.get("host"):
+            _deliver_sftp(liid, seq, payload)
+            with db() as d:
+                d.execute(
+                    "UPDATE cc_log SET sftp_delivered=1 WHERE liid=? AND ts=?",
+                    (liid, ts)
+                )
+
+    except Exception as e:
+        logger.warning("X3 UDP: failed to parse ULIC from %s: %s — raw hex: %s",
+                       ne_addr, e, data[:32].hex())
+
+
+# ═══════════════════════════════════════════════════════════════
 #  ENTRYPOINT
 # ═══════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="LIS Standalone Server — India 4G LTE")
-    parser.add_argument("--port",     type=int, default=8001)
-    parser.add_argument("--host",     default="0.0.0.0")
-    parser.add_argument("--db-url",   default="",
+    parser.add_argument("--port",         type=int, default=8001,  help="HTTP API port")
+    parser.add_argument("--host",         default="0.0.0.0")
+    parser.add_argument("--db-url",       default="",
         help="PostgreSQL URL: postgresql://lis:secret@localhost/lisdb  (default: SQLite)")
     parser.add_argument("--sftp-host",    default="", help="LEA SFTP host for HI3 CC delivery")
     parser.add_argument("--sftp-port",    type=int, default=2222)
     parser.add_argument("--sftp-user",    default="lea")
     parser.add_argument("--sftp-pass",    default="")
+    parser.add_argument("--x2-port",      type=int, default=4000,
+        help="X2 TCP port for ASN.1 BER IRI from NE (TS 33.108 Annex B.9)")
+    parser.add_argument("--x3-port",      type=int, default=4001,
+        help="X3 UDP port for ULIC CC from NE (TS 33.108 Annex C)")
     args = parser.parse_args()
 
     DB_URL = args.db_url
@@ -1401,24 +1704,31 @@ if __name__ == "__main__":
     db_init()
     _load_warrants_from_db()
 
+    # Start X2 TCP and X3 UDP servers in background threads
+    threading.Thread(target=_run_x2_tcp_server, args=(args.x2_port,),
+                     daemon=True, name="X2-TCP").start()
+    threading.Thread(target=_run_x3_udp_server, args=(args.x3_port,),
+                     daemon=True, name="X3-UDP").start()
+
     db_label   = f"PostgreSQL ({args.db_url.split('@')[-1]})" if _is_pg() else f"SQLite ({SQLITE_PATH})"
-    sftp_label = f"SFTP → {args.sftp_host}:{args.sftp_port}" if args.sftp_host else "SFTP not configured (use /hi3/sftp/config)"
+    sftp_label = f"SFTP → {args.sftp_host}:{args.sftp_port}" if args.sftp_host else "SFTP not configured"
 
     print(f"""
 ╔══════════════════════════════════════════════════════════════╗
-║      LIS Standalone Server v3.0 — India 4G LTE              ║
+║      LIS Standalone Server v3.1 — India 4G LTE              ║
 ║      DoT / MHA Authorised Lawful Interception System         ║
 ╠══════════════════════════════════════════════════════════════╣
-║  Portal:    http://localhost:{args.port:<5}                      ║
-║  API Docs:  http://localhost:{args.port:<5}/docs                  ║
+║  HI1  SOAP   HTTP  :{args.port:<5}  /hi1/soap  (ETSI TS 103 120)║
+║  HI2  PUSH   HTTP  → LEA:{args.sftp_port:<5} (IRI delivery)       ║
+║  HI3  SFTP   {sftp_label:<47}║
 ╠══════════════════════════════════════════════════════════════╣
+║  X1   HTTP   GET   :{args.port:<5}  /x1/tasks/{{mme|sgw|pgw}}  ║
+║  X2   TCP    BER   :{args.x2_port:<5}  ASN.1 IRI (TS 33.108 B.9)║
+║  X3   UDP    ULIC  :{args.x3_port:<5}  CC content (TS 33.108 C) ║
+╠══════════════════════════════════════════════════════════════╣
+║  Portal:    http://localhost:{args.port}                     ║
+║  API Docs:  http://localhost:{args.port}/docs                ║
 ║  Storage:   {db_label:<49}║
-║  HI3 SFTP:  {sftp_label:<49}║
-╠══════════════════════════════════════════════════════════════╣
-║  HI1  SOAP  /hi1/soap             (ETSI TS 103 120)         ║
-║  X2   POST  /x2/iri               (ASN.1 BER accepted)      ║
-║  X3   POST  /x3/cc                (SFTP delivery to LEA)    ║
-║  X1   GET   /x1/tasks/{{mme|sgw|pgw}} (NE provisioning)     ║
 ╚══════════════════════════════════════════════════════════════╝
     """)
 
