@@ -1421,14 +1421,15 @@ def list_cc_files(session: dict = Depends(require_auth)):
 # ── X1 Tasks ─────────────────────────────────────────────────
 
 @app.get("/x1/tasks/{ne}", tags=["X1"])
-def get_ne_tasks(ne: str, session: dict = Depends(require_auth)):
+def get_ne_tasks(ne: str, request: Request):
+    """X1 provisioning tasks — no auth required for NE polling (testing mode)"""
     ne = ne.upper()
     if ne not in _ne_tasks:
-        logger.warning("X1: get_ne_tasks unknown NE=%s requested by user=%s", ne, session.get("username"))
+        logger.warning("X1: get_ne_tasks unknown NE=%s requested by user=%s", ne, request.client.host if request.client else "unknown")
         raise HTTPException(404, f"Unknown NE: {ne}")
     with _lock:
         tasks = list(reversed(_ne_tasks[ne]))
-    logger.debug("X1: NE=%s polled tasks by user=%s, queue_depth=%d", ne, session.get("username"), len(tasks))
+    logger.debug("X1: NE=%s polled tasks by user=%s, queue_depth=%d", ne, request.client.host if request.client else "unknown", len(tasks))
     return tasks
 
 
