@@ -52,28 +52,14 @@ logger = logging.getLogger("LIS")
 
 # ── User accounts (SHA-256 hashed passwords) ─────────────────
 #
-#  Role: admin  → LIS Dashboard  (lis_adm!n_d0t)
-#  Role: lea    → LEA Portal     (lea_0ff!c3r_1B)
-#  Role: ne     → NE Simulator   (ne_3ng1n33r_4G)
+#  All portals: admin / admin
 #
 _USERS: dict[str, dict] = {
-    "lis_adm!n_d0t": {
-        "password_hash": "20e766054cc7e5b3f2662c7277162b70036b350ec9711e6ff3ab7fc59f94ebe0",
+    "admin": {
+        "password_hash": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
         "role":   "admin",
-        "name":   "LIS Administrator (DoT)",
-        "access": "LIS Dashboard — Full Access",
-    },
-    "lea_0ff!c3r_1B": {
-        "password_hash": "b4cc57acfe3bd63add2dfee95a54ad40ca96234326f2bebb4d7d7c129b2e1dd9",
-        "role":   "lea",
-        "name":   "LEA Officer — Intelligence Bureau",
-        "access": "LEA Portal — HI1 / HI2 / HI3",
-    },
-    "ne_3ng1n33r_4G": {
-        "password_hash": "c26633674ee7301fba8f7e06172fe904d5757a4883a0aef36749cd4d449904e2",
-        "role":   "ne",
-        "name":   "NE Engineer — Network Simulator",
-        "access": "NE Simulator — X1 / X2 / X3",
+        "name":   "Administrator",
+        "access": "Full Access",
     },
 }
 
