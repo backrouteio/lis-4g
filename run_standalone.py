@@ -1099,7 +1099,7 @@ async def hi1_soap(request: Request):
                 authorized_by=authorized_by, delivery_ip=delivery_ip,
                 delivery_port=delivery_port, valid_from=valid_from,
                 valid_until=valid_until, country_code=country_code,
-            ))
+            ), session=sess)
             xml_out = _soap_ok("Activate", liid, "SUCCESS",
                                f"Intercept activated. IMSI={imsi} MSISDN={msisdn}")
             logger.info("HI1 SOAP: ActivateResponse SUCCESS LIID=%s", liid)
@@ -1116,7 +1116,7 @@ async def hi1_soap(request: Request):
         lea_id = _xml(req_el, "LEAID")
         logger.info("HI1 SOAP DeactivateRequest parsed: LIID=%s LEA=%s", liid, lea_id)
         try:
-            deactivate_warrant(DeactivateReq(liid=liid, lea_id=lea_id))
+            deactivate_warrant(DeactivateReq(liid=liid, lea_id=lea_id), session=sess)
             logger.info("HI1 SOAP: DeactivateResponse SUCCESS LIID=%s", liid)
             return Response(_soap_ok("Deactivate", liid, "SUCCESS", "Intercept deactivated"), media_type="text/xml")
         except HTTPException as e:
