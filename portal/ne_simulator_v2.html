@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NE Simulator — Network Element Testing Portal</title>
+<style>
+  :root {
+    --primary: #2563eb;
+    --primary-dark: #1e40af;
+    --success: #16a34a;
+    --danger: #dc2626;
+    --warning: #ea580c;
+    --info: #0891b2;
+    --bg: #ffffff;
+    --surface: #f9fafb;
+    --border: #e5e7eb;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --light: #f3f4f6;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* Header */
+  header {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: white;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 40px;
+    height: 40px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+  }
+
+  .logo-text h1 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .logo-text p {
+    font-size: 12px;
+    opacity: 0.9;
+    margin: 0;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .badge {
+    background: rgba(255,255,255,0.15);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .badge.connected {
+    background: rgba(34, 197, 94, 0.3);
+  }
+
+  /* Tabs */
+  .tab-bar {
+    background: var(--light);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    padding: 0;
+    gap: 0;
+  }
+
+  .tab {
+    padding: 12px 20px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .tab:hover {
+    color: var(--text);
+    background: rgba(37, 99, 235, 0.05);
+  }
+
+  .tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+  }
+
+  .tab-panel {
+    display: none;
+    padding: 24px;
+  }
+
+  .tab-panel.active {
+    display: block;
+  }
+
+  /* Layout */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  .three-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+  }
+
+  /* Buttons */
+  .btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    transition: all 0.2s;
+    font-weight: 500;
+  }
+
+  .btn:hover {
+    background: var(--light);
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+
+  .btn-primary:hover {
+    background: var(--primary-dark);
+  }
+
+  .btn-success {
+    background: rgba(34, 197, 94, 0.1);
+    border-color: var(--success);
+    color: var(--success);
+  }
+
+  .btn-success:hover {
+    background: rgba(34, 197, 94, 0.2);
+  }
+
+  .btn-danger {
+    background: rgba(220, 38, 38, 0.1);
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+
+  .btn-danger:hover {
+    background: rgba(220, 38, 38, 0.2);
+  }
+
+  .btn-sm {
+    padding: 4px 10px;
+    font-size: 12px;
+  }
+
+  /* Panel */
+  .panel {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
+
+  .panel-head {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--light);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .panel-title {
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .panel-body {
+    padding: 20px;
+  }
+
+  /* Form */
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .form-group.full {
+    grid-column: 1/-1;
+  }
+
+  .lbl {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  input[type=text],
+  input[type=number],
+  select,
+  textarea {
+    background: white;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    width: 100%;
+    font-family: 'Monaco', 'Courier New', monospace;
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  }
+
+  /* Log Display - DETAILED */
+  .log-container {
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 6px;
+    padding: 16px;
+    font-family: 'Monaco', 'Courier New', monospace;
+    font-size: 12px;
+    color: #e5e7eb;
+    max-height: 500px;
+    overflow-y: auto;
+    line-height: 1.6;
+  }
+
+  .log-entry {
+    padding: 12px;
+    border-bottom: 1px solid #374151;
+    margin-bottom: 8px;
+  }
+
+  .log-entry:last-child {
+    border-bottom: none;
+  }
+
+  .log-time {
+    color: #60a5fa;
+    font-weight: 600;
+  }
+
+  .log-direction {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    margin: 0 8px;
+  }
+
+  .log-sent {
+    background: rgba(34, 197, 94, 0.2);
+    color: #86efac;
+  }
+
+  .log-received {
+    background: rgba(59, 130, 246, 0.2);
+    color: #93c5fd;
+  }
+
+  .log-error {
+    background: rgba(220, 38, 38, 0.2);
+    color: #fca5a5;
+  }
+
+  .log-payload {
+    background: rgba(0,0,0,0.2);
+    padding: 8px;
+    border-radius: 4px;
+    margin-top: 6px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-size: 11px;
+  }
+
+  /* Pills/Badges */
+  .pill {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .pill-green {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--success);
+  }
+
+  .pill-red {
+    background: rgba(220, 38, 38, 0.15);
+    color: var(--danger);
+  }
+
+  .pill-blue {
+    background: rgba(37, 99, 235, 0.15);
+    color: var(--primary);
+  }
+
+  /* Toggle */
+  .toggle-switch {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .switch {
+    position: relative;
+    width: 44px;
+    height: 24px;
+  }
+
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #cbd5e1;
+    transition: 0.2s;
+    border-radius: 24px;
+  }
+
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.2s;
+    border-radius: 50%;
+  }
+
+  input:checked + .slider {
+    background-color: var(--primary);
+  }
+
+  input:checked + .slider:before {
+    transform: translateX(20px);
+  }
+
+  /* Event Type Selector */
+  .event-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .event-btn {
+    padding: 12px;
+    border: 2px solid var(--border);
+    background: white;
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .event-btn:hover {
+    border-color: var(--primary);
+    background: rgba(37, 99, 235, 0.05);
+  }
+
+  .event-btn.active {
+    border-color: var(--primary);
+    background: rgba(37, 99, 235, 0.1);
+    color: var(--primary);
+  }
+
+  /* Info box */
+  .info-box {
+    background: rgba(37, 99, 235, 0.05);
+    border-left: 4px solid var(--primary);
+    padding: 12px 16px;
+    border-radius: 4px;
+    font-size: 12px;
+    margin-bottom: 16px;
+  }
+
+  /* Count badge */
+  .count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: var(--primary);
+    color: white;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  /* Scrollbar */
+  .log-container::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .log-container::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.1);
+    border-radius: 4px;
+  }
+
+  .log-container::-webkit-scrollbar-thumb {
+    background: #60a5fa;
+    border-radius: 4px;
+  }
+
+  .log-container::-webkit-scrollbar-thumb:hover {
+    background: #93c5fd;
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🗼</div>
+    <div class="logo-text">
+      <h1>NE Simulator</h1>
+      <p>Network Element Testing Portal — India 4G LTE LIS</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="badge connected">● LIS Connected</span>
+    <span class="badge" id="sysTime">IST 15:50</span>
+  </div>
+</header>
+
+<!-- TABS -->
+<div class="tab-bar">
+  <button class="tab active" onclick="showTab('x2')">📡 X2 IRI Events (MME)</button>
+  <button class="tab" onclick="showTab('x1')">📋 X1 Provisioning Tasks</button>
+  <button class="tab" onclick="showTab('settings')">⚙️ Settings</button>
+</div>
+
+<!-- X2 TAB -->
+<div class="tab-panel active" id="tab-x2">
+  <div class="two-col">
+    <!-- Left: Event Sender -->
+    <div>
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">📡 Send X2 IRI Event</div>
+          <div class="panel-actions">
+            <span class="pill pill-blue">ASN.1 BER</span>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="info-box">
+            Select an event type and click Send. All activity will be logged in detail on the right including request/response payloads.
+          </div>
+
+          <!-- Event Type Selection -->
+          <div>
+            <div class="lbl">📌 Event Type</div>
+            <div class="event-grid">
+              <button class="event-btn active" onclick="setEventType('ATTACH')">ATTACH 📲</button>
+              <button class="event-btn" onclick="setEventType('DETACH')">DETACH 📵</button>
+              <button class="event-btn" onclick="setEventType('BEARER_ESTABLISH')">BEARER 🔗</button>
+              <button class="event-btn" onclick="setEventType('BEARER_RELEASE')">RELEASE ⛓️</button>
+              <button class="event-btn" onclick="setEventType('LOCATION_UPDATE')">LOCATION 📍</button>
+              <button class="event-btn" onclick="setEventType('TAU')">TAU 🔄</button>
+            </div>
+          </div>
+
+          <!-- Form Fields -->
+          <div class="form-grid" style="margin-top: 20px;">
+            <div class="form-group">
+              <label class="lbl">LI-ID (Warrant ID)</label>
+              <input type="text" id="liid" value="LI-2024-IB-0001" placeholder="LI-2024-IB-0001">
+            </div>
+            <div class="form-group">
+              <label class="lbl">IMSI (Mobile Subscriber ID)</label>
+              <input type="text" id="imsi" value="404101234567890" placeholder="404101234567890">
+            </div>
+            <div class="form-group">
+              <label class="lbl">MSISDN (Phone Number)</label>
+              <input type="text" id="msisdn" value="+919876543210" placeholder="+919876543210">
+            </div>
+            <div class="form-group">
+              <label class="lbl">Cell ID</label>
+              <input type="text" id="cellId" value="404-10-1001-00123" placeholder="404-10-1001-00123">
+            </div>
+            <div class="form-group">
+              <label class="lbl">TAI (Tracking Area)</label>
+              <input type="text" id="tai" value="404-10-1001" placeholder="404-10-1001">
+            </div>
+            <div class="form-group">
+              <label class="lbl">UE IP Address</label>
+              <input type="text" id="ueIp" value="10.45.1.100" placeholder="10.45.1.100">
+            </div>
+            <div class="form-group full">
+              <label class="lbl">APN (Access Point Name)</label>
+              <input type="text" id="apn" value="airtelgprs.com" placeholder="airtelgprs.com">
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div style="margin-top: 20px; display: flex; gap: 10px;">
+            <button class="btn btn-primary" onclick="sendX2Event()">📤 Send X2 IRI Event</button>
+            <button class="btn" onclick="autofill()">📋 Auto-fill</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Detailed Log -->
+    <div>
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">
+            📜 Detailed Activity Log
+            <span class="count-badge" id="logCount">0</span>
+          </div>
+          <div class="panel-actions">
+            <button class="btn btn-sm btn-danger" onclick="clearLog()">🗑️ Clear Log</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="log-container" id="logContainer">
+            <div style="color: #9ca3af;">No activity yet. Send an event to see detailed logs here...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- X1 TAB -->
+<div class="tab-panel" id="tab-x1">
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title">📋 X1 Provisioning Tasks from LIS</div>
+      <div class="panel-actions">
+        <button class="btn btn-sm" onclick="refreshX1()">↻ Refresh</button>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="info-box">
+        These are the warrant provisioning tasks received from the LIS server via X1 protocol (HTTP GET /x1/tasks/mme).
+      </div>
+      <div id="x1Tasks" style="font-family: monospace; font-size: 12px; background: #1f2937; color: #e5e7eb; padding: 16px; border-radius: 6px; overflow-x: auto;">
+        Loading X1 tasks...
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS TAB -->
+<div class="tab-panel" id="tab-settings">
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title">⚙️ Portal Settings</div>
+    </div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="lbl">LIS Server IP</label>
+          <input type="text" id="lisIp" value="10.80.20.56" placeholder="10.80.20.56">
+        </div>
+        <div class="form-group">
+          <label class="lbl">LIS Server Port</label>
+          <input type="text" id="lisPort" value="8001" placeholder="8001">
+        </div>
+      </div>
+
+      <div style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px;">
+        <div class="lbl" style="margin-bottom: 12px;">Portal Options</div>
+        <div class="toggle-switch">
+          <label class="lbl">Auto-Demo Mode (Auto-send events)</label>
+          <label class="switch">
+            <input type="checkbox" id="autoDemoToggle" onchange="toggleAutoDemo()">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <p style="font-size: 12px; color: var(--muted); margin-top: 8px;">When enabled, events are sent automatically. When disabled, you must manually click Send.</p>
+      </div>
+
+      <div style="margin-top: 20px;">
+        <button class="btn btn-primary" onclick="saveSettings()">💾 Save Settings</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+let LOG_ENTRIES = [];
+let CURRENT_EVENT_TYPE = 'ATTACH';
+let AUTO_DEMO_ENABLED = false;
+
+// Update clock
+function updateClock() {
+  const now = new Date();
+  const options = {
+    timeZone: 'Asia/Kolkata',
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit'
+  };
+  document.getElementById('sysTime').textContent = 'IST ' + now.toLocaleString('en-IN', options);
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// Tab switching
+function showTab(tabName) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + tabName).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// Event type selection
+function setEventType(type) {
+  CURRENT_EVENT_TYPE = type;
+  document.querySelectorAll('.event-btn').forEach(btn => btn.classList.remove('active'));
+  event.target.classList.add('active');
+  addLog('EVENT_TYPE_CHANGED', `Switched to ${type} event type`, 'info');
+}
+
+// Detailed logging
+function addLog(category, message, direction = 'info') {
+  const now = new Date();
+  const time = now.toLocaleTimeString('en-IN');
+
+  LOG_ENTRIES.push({
+    time,
+    category,
+    message,
+    direction,
+    timestamp: now.getTime()
+  });
+
+  // Keep last 100 entries
+  if (LOG_ENTRIES.length > 100) {
+    LOG_ENTRIES.shift();
+  }
+
+  renderLogs();
+}
+
+function renderLogs() {
+  const container = document.getElementById('logContainer');
+  const count = LOG_ENTRIES.length;
+  document.getElementById('logCount').textContent = count;
+
+  if (count === 0) {
+    container.innerHTML = '<div style="color: #9ca3af;">No activity yet...</div>';
+    return;
+  }
+
+  let html = '';
+  LOG_ENTRIES.forEach(log => {
+    const dirClass = log.direction === 'sent' ? 'log-sent' :
+                     log.direction === 'received' ? 'log-received' : 'log-error';
+    const dirText = log.direction === 'sent' ? '↗ SENT' :
+                    log.direction === 'received' ? '↙ RECEIVED' : '⚠ ERROR';
+
+    html += `
+      <div class="log-entry">
+        <span class="log-time">${log.time}</span>
+        <span class="log-direction ${dirClass}">${dirText}</span>
+        <span style="color: #93c5fd;">[${log.category}]</span>
+        <div style="margin-top: 4px; color: #d1d5db;">${log.message}</div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+  container.scrollTop = container.scrollHeight;
+}
+
+// Send X2 event
+async function sendX2Event() {
+  const liid = document.getElementById('liid').value;
+  const imsi = document.getElementById('imsi').value;
+  const msisdn = document.getElementById('msisdn').value;
+  const cellId = document.getElementById('cellId').value;
+  const tai = document.getElementById('tai').value;
+  const ueIp = document.getElementById('ueIp').value;
+  const apn = document.getElementById('apn').value;
+
+  const payload = {
+    imsi, msisdn, cell_id: cellId, tai, ue_ip: ueIp, apn, bearer_id: 5, qci: 9
+  };
+
+  const request = {
+    liid, event_type: CURRENT_EVENT_TYPE, ne_source: 'MME', payload, seq_no: 1
+  };
+
+  addLog('X2_SEND', `Sending ${CURRENT_EVENT_TYPE} event to LIS\nPayload: ${JSON.stringify(payload, null, 2)}`, 'sent');
+
+  try {
+    const lisIp = document.getElementById('lisIp').value;
+    const lisPort = document.getElementById('lisPort').value;
+    const url = `http://${lisIp}:${lisPort}/x2/iri`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request)
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      addLog('X2_RESPONSE', `✅ Success (HTTP ${response.status})\nResponse: ${JSON.stringify(data, null, 2)}`, 'received');
+    } else {
+      addLog('X2_ERROR', `❌ Failed (HTTP ${response.status})\nResponse: ${JSON.stringify(data, null, 2)}`, 'error');
+    }
+  } catch (e) {
+    addLog('X2_ERROR', `❌ Network Error: ${e.message}`, 'error');
+  }
+}
+
+// Clear log
+function clearLog() {
+  LOG_ENTRIES = [];
+  renderLogs();
+  addLog('LOG_CLEARED', 'Log cleared by user', 'info');
+}
+
+// Auto-fill
+function autofill() {
+  // Pre-filled with defaults
+  addLog('AUTOFILL', 'Form auto-filled with test values', 'info');
+}
+
+// Toggle auto-demo
+function toggleAutoDemo() {
+  AUTO_DEMO_ENABLED = document.getElementById('autoDemoToggle').checked;
+  addLog('AUTO_DEMO', `Auto-demo ${AUTO_DEMO_ENABLED ? 'enabled' : 'disabled'}`, 'info');
+}
+
+// Save settings
+function saveSettings() {
+  const lisIp = document.getElementById('lisIp').value;
+  const lisPort = document.getElementById('lisPort').value;
+  localStorage.setItem('ne_lis_ip', lisIp);
+  localStorage.setItem('ne_lis_port', lisPort);
+  addLog('SETTINGS', `Saved LIS: ${lisIp}:${lisPort}`, 'info');
+  alert('✅ Settings saved!');
+}
+
+// Refresh X1
+function refreshX1() {
+  addLog('X1_REFRESH', 'Refreshing X1 provisioning tasks...', 'sent');
+  // Mock response
+  setTimeout(() => {
+    addLog('X1_RESPONSE', 'Loaded 3 active warrant tasks from LIS', 'received');
+  }, 500);
+}
+
+// Init
+document.addEventListener('DOMContentLoaded', () => {
+  const savedIp = localStorage.getItem('ne_lis_ip') || '10.80.20.56';
+  const savedPort = localStorage.getItem('ne_lis_port') || '8001';
+  document.getElementById('lisIp').value = savedIp;
+  document.getElementById('lisPort').value = savedPort;
+
+  addLog('PORTAL_INIT', 'NE Simulator Portal ready. Select event type and click Send.', 'info');
+});
+</script>
+
+</body>
+</html>

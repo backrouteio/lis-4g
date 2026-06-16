@@ -1,0 +1,39 @@
+[Unit]
+Description=LIS Standalone Server - Lawful Interception System
+Documentation=https://github.com/backrouteio/lis-4g
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/root/lis-4g
+
+ExecStart=/usr/bin/python3 /root/lis-4g/run_standalone.py --host 0.0.0.0 --port 8001
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+StartLimitInterval=600
+StartLimitBurst=5
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lis-server
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=32768
+
+# Security hardening
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/root/lis-4g /var/log
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+Environment="TZ=Asia/Kolkata"
+
+[Install]
+WantedBy=multi-user.target

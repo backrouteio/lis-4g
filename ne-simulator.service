@@ -1,0 +1,39 @@
+[Unit]
+Description=NE Simulator - Network Element Testing Portal
+Documentation=https://github.com/backrouteio/lis-4g
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/root/lis-4g
+
+ExecStart=/usr/bin/python3 /root/lis-4g/ne_simulator.py --lis-ip 10.80.20.56 --lis-port 8001 --x2-port 4000 --x3-port 4001 --ne mme --auto
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+StartLimitInterval=600
+StartLimitBurst=5
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ne-simulator
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=32768
+
+# Security hardening
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/root/lis-4g /var/log
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+Environment="TZ=Asia/Kolkata"
+
+[Install]
+WantedBy=multi-user.target
