@@ -712,7 +712,7 @@ function prefillExample(){
   document.getElementById('targetIMSI').value='405854123456789';
   document.getElementById('targetIMEI').value='353553110000042';
   document.getElementById('interceptType').value='IRI_AND_CC';
-  document.getElementById('deliveryIp').value=document.getElementById('cfgLeaIp').value||'<LEA-IP>';
+  document.getElementById('deliveryIp').value=document.getElementById('cfgLeaIp').value||window.location.hostname;
 }
 
 /* ══ SOAP builder ══ */
