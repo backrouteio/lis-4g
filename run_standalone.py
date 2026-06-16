@@ -150,10 +150,14 @@ def _token_from_request(request: Request) -> str | None:
 def require_auth(request: Request) -> dict:
     """FastAPI dependency — raises 401 if not authenticated."""
     token = _token_from_request(request)
+    client_ip = request.client.host if request.client else "unknown"
     if not token:
+        logger.warning("AUTH: missing token, path=%s client_ip=%s", request.url.path, client_ip)
         raise HTTPException(status_code=401, detail="Authentication required. Please log in.")
     session = _get_session(token)
     if not session:
+        logger.warning("AUTH: invalid/expired token, path=%s client_ip=%s token_prefix=%s",
+                        request.url.path, client_ip, token[:8])
         raise HTTPException(status_code=401, detail="Session expired or invalid. Please log in again.")
     return session
 
@@ -538,7 +542,11 @@ def _deliver_sftp(liid: str, seq: int, payload: dict) -> tuple[bool, str]:
     Returns (success, remote_path).
     """
     if not _sftp_config.get("host"):
+        logger.debug("HI3 SFTP: skipped for LIID=%s seq=%d — no SFTP host configured", liid, seq)
         return False, ""
+    t0 = time.time()
+    logger.info("HI3 SFTP: connecting to %s:%s user=%s for LIID=%s seq=%d",
+                _sftp_config["host"], _sftp_config.get("port", 2222), _sftp_config.get("username","lea"), liid, seq)
     try:
         import paramiko
         client = paramiko.SSHClient()
@@ -574,13 +582,17 @@ def _deliver_sftp(liid: str, seq: int, payload: dict) -> tuple[bool, str]:
             f.write(cc_data)
         with _lock:
             _cc_files.append({"name": fname, "liid": liid, "size": f"{len(cc_data)}B", "ts": datetime.utcnow().isoformat()})
-        logger.info("HI3 SFTP: delivered %s → %s:%s/%s", liid, _sftp_config["host"], _sftp_config.get("port",2222), remote_path)
+        logger.info("HI3 SFTP: delivered LIID=%s seq=%d → %s:%s/%s size=%dB elapsed=%.2fs",
+                    liid, seq, _sftp_config["host"], _sftp_config.get("port",2222), remote_path,
+                    len(cc_data), time.time()-t0)
         return True, remote_path
     except ImportError:
-        logger.warning("paramiko not installed — SFTP delivery skipped. pip install paramiko --break-system-packages")
+        logger.warning("HI3 SFTP: paramiko not installed — delivery skipped for LIID=%s. "
+                       "pip install paramiko --break-system-packages", liid)
         return False, "paramiko_not_installed"
     except Exception as e:
-        logger.warning("HI3 SFTP failed: %s", e)
+        logger.warning("HI3 SFTP: delivery FAILED for LIID=%s seq=%d host=%s:%s — %s (elapsed=%.2fs)",
+                       liid, seq, _sftp_config.get("host"), _sftp_config.get("port",2222), e, time.time()-t0)
         return False, f"error: {e}"
 
 
@@ -594,17 +606,22 @@ def _deliver_hi2(liid: str, iri_record: dict, delivery_ip: str, delivery_port: i
     Non-blocking — runs in background thread.
     """
     if not delivery_ip:
+        logger.debug("HI2 push: skipped for LIID=%s — no delivery_ip on warrant", liid)
         return
     url = f"http://{delivery_ip}:{delivery_port}/hi2/iri"  # LEA receiver endpoint
+    t0 = time.time()
+    logger.info("HI2 push: sending LIID=%s seq=%s event=%s → %s",
+                liid, iri_record.get("seq_no") or iri_record.get("seq"),
+                iri_record.get("event_type"), url)
     try:
         import urllib.request
         data = json.dumps(iri_record).encode("utf-8")
         req = urllib.request.Request(url, data=data, method="POST",
                                      headers={"Content-Type": "application/json"})
         urllib.request.urlopen(req, timeout=5)
-        logger.info("HI2 push: delivered LIID=%s to %s", liid, url)
+        logger.info("HI2 push: delivered LIID=%s to %s size=%dB elapsed=%.2fs", liid, url, len(data), time.time()-t0)
     except Exception as e:
-        logger.debug("HI2 push failed (non-critical): %s", e)
+        logger.warning("HI2 push: FAILED for LIID=%s to %s — %s (elapsed=%.2fs)", liid, url, e, time.time()-t0)
 
 
 def _hi2_push_async(liid: str, iri_record: dict):
@@ -625,6 +642,9 @@ def _hi2_push_async(liid: str, iri_record: dict):
     if delivery_ip:
         t = threading.Thread(target=_deliver_hi2, args=(liid, iri_record, delivery_ip, delivery_port), daemon=True)
         t.start()
+    else:
+        logger.warning("HI2 push: cannot deliver LIID=%s — warrant has no resolvable delivery address "
+                       "(delivery_ip and delivery_address both empty)", liid)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -676,7 +696,13 @@ def logout(request: Request):
     token = _token_from_request(request)
     if token:
         with _auth_lock:
-            _sessions.pop(token, None)
+            sess = _sessions.pop(token, None)
+        if sess:
+            logger.info("AUTH: logout user=%s role=%s", sess.get("username"), sess.get("role"))
+        else:
+            logger.warning("AUTH: logout called with unknown/expired token_prefix=%s", token[:8])
+    else:
+        logger.warning("AUTH: logout called with no token")
     return {"status": "logged_out"}
 
 
@@ -695,8 +721,11 @@ def whoami(session: dict = Depends(require_auth)):
 def list_sessions(session: dict = Depends(require_auth)):
     """Admin only — list active sessions."""
     if session["role"] != "admin":
+        logger.warning("AUTH: non-admin user=%s (role=%s) denied access to /auth/sessions",
+                        session.get("username"), session.get("role"))
         raise HTTPException(403, "Admin role required")
     _purge_expired()
+    logger.info("AUTH: user=%s listed active sessions (count=%d)", session.get("username"), len(_sessions))
     with _auth_lock:
         return [
             {"username": s["username"], "role": s["role"],
@@ -804,11 +833,17 @@ def _x1_provision(warrant: dict, action: str):
                 _ne_tasks[ne] = [t for t in _ne_tasks[ne] if t.get("liid") != warrant["liid"]]
             else:
                 _ne_tasks[ne].append(task)
-        logger.info("X1 [%s] %s → %s target=%s", ne, action, warrant["liid"], task["target_msisdn"])
+        logger.info("X1 [%s] %s → LIID=%s task_id=%s target_msisdn=%s target_imsi=%s "
+                    "intercept_type=%s delivery=%s:%s queue_depth=%d",
+                    ne, action, warrant["liid"], task["task_id"], task["target_msisdn"],
+                    task["target_imsi"], itype, task["delivery_ip"], task["delivery_port"],
+                    len(_ne_tasks[ne]))
 
 
 @app.post("/hi1/warrants/activate", tags=["HI1"])
 def activate_warrant(req: ActivateReq, session: dict = Depends(require_auth)):
+    logger.info("HI1 ACTIVATE request: LIID=%s LEA=%s by user=%s raw=%s",
+                req.liid, req.lea_id, session.get("username"), req.model_dump())
     # Normalise target fields
     target_msisdn = req.target_msisdn or (req.target.value if req.target and req.target.id_type=="MSISDN" else None) or ""
     target_imsi   = req.target_imsi   or (req.target.value if req.target and req.target.id_type=="IMSI"   else None) or ""
@@ -855,8 +890,11 @@ def activate_warrant(req: ActivateReq, session: dict = Depends(require_auth)):
         _warrants[req.liid] = warrant
 
     _x1_provision(warrant, "ACTIVATE")
-    logger.info("HI1 ACTIVATE: LIID=%s MSISDN=%s IMSI=%s type=%s LEA=%s",
-                req.liid, target_msisdn, target_imsi, req.intercept_type, req.lea_id)
+    logger.info("HI1 ACTIVATE OK: LIID=%s MSISDN=%s IMSI=%s IMEI=%s type=%s LEA=%s "
+                "legal=%s auth_ref=%s authorized_by=%s delivery=%s:%s valid=%s..%s db_row=%s",
+                req.liid, target_msisdn, target_imsi, target_imei, req.intercept_type, req.lea_id,
+                req.legal_authority, req.auth_ref, req.authorized_by, delivery_ip, delivery_port,
+                req.valid_from, req.valid_until, "updated" if existing else "inserted")
     return {"liid": req.liid, "status": "ACTIVATED", "message": "Intercept activated successfully",
             "x1_provisioned": ["MME","SGW","PGW"] if req.intercept_type=="IRI_AND_CC" else
                               ["MME"] if req.intercept_type=="IRI_ONLY" else ["SGW","PGW"]}
@@ -864,9 +902,11 @@ def activate_warrant(req: ActivateReq, session: dict = Depends(require_auth)):
 
 @app.post("/hi1/warrants/deactivate", tags=["HI1"])
 def deactivate_warrant(req: DeactivateReq, session: dict = Depends(require_auth)):
+    logger.info("HI1 DEACTIVATE request: LIID=%s LEA=%s by user=%s", req.liid, req.lea_id, session.get("username"))
     with db() as d:
         row = d.fetchone("SELECT * FROM warrants WHERE liid=?", (req.liid,))
         if not row:
+            logger.warning("HI1 DEACTIVATE FAILED: LIID=%s not found", req.liid)
             raise HTTPException(404, f"Warrant {req.liid} not found")
         d.update("UPDATE warrants SET active=0 WHERE liid=?", (req.liid,))
 
@@ -943,14 +983,32 @@ def _soap_fault(code: str, reason: str) -> str:
             f'</soapenv:Fault></soapenv:Body></soapenv:Envelope>')
 
 
+def _find(el, *tags):
+    """Find first matching child by tag, trying namespaced then bare names.
+    NOTE: must use explicit `is not None` checks — ElementTree Elements are
+    falsy when they have no children, so `a.find(x) or a.find(y)` silently
+    discards valid leaf-text elements (e.g. <hi1:LIID>VALUE</hi1:LIID>)."""
+    if el is None:
+        return None
+    for tag in tags:
+        node = el.find(f"{{{HI1_NS}}}{tag}")
+        if node is not None:
+            return node
+        node = el.find(tag)
+        if node is not None:
+            return node
+    return None
+
+
 def _xml(el, tag: str) -> str:
-    node = el.find(f"{{{HI1_NS}}}{tag}") or el.find(tag)
+    node = _find(el, tag)
     return node.text.strip() if node is not None and node.text else ""
 
 
 @app.post("/hi1/soap", tags=["HI1-SOAP"], response_class=Response,
           summary="HI1 SOAP — ETSI TS 103 120")
 async def hi1_soap(request: Request):
+    client_ip = request.client.host if request.client else "unknown"
     # SOAP requests carry the token via Authorization header OR X-Auth-Token header
     token = None
     auth_hdr = request.headers.get("Authorization", "")
@@ -959,29 +1017,33 @@ async def hi1_soap(request: Request):
     if not token:
         token = request.headers.get("X-Auth-Token", "")
     if not token:
+        logger.warning("HI1 SOAP: rejected — no auth token, IP=%s", client_ip)
         return Response(_soap_fault("soapenv:Client", "Authentication required. Include Authorization: Bearer <token> header."),
                         media_type="text/xml", status_code=401)
     sess = _get_session(token)
     if not sess:
+        logger.warning("HI1 SOAP: rejected — invalid/expired token, IP=%s", client_ip)
         return Response(_soap_fault("soapenv:Client", "Invalid or expired session token."),
                         media_type="text/xml", status_code=401)
     _purge_expired()
 
     raw = await request.body()
+    logger.info("HI1 SOAP: request received from IP=%s user=%s bytes=%d", client_ip, sess.get("username"), len(raw))
+    logger.debug("HI1 SOAP: raw request body:\n%s", raw.decode("utf-8", errors="replace"))
     try:
         root = ET.fromstring(raw)
     except ET.ParseError as e:
+        logger.warning("HI1 SOAP: XML parse error from IP=%s: %s — raw(first 500B)=%r",
+                       client_ip, e, raw[:500])
         return Response(_soap_fault("soapenv:Client", f"XML parse error: {e}"), media_type="text/xml", status_code=400)
 
     soap_body = root.find(f"{{{SOAP_ENV_NS}}}Body")
     if soap_body is None:
+        logger.warning("HI1 SOAP: missing SOAP Body from IP=%s", client_ip)
         return Response(_soap_fault("soapenv:Client", "Missing SOAP Body"), media_type="text/xml", status_code=400)
 
     # ── ActivateRequest or ActivateInterceptionRequest ────────
-    req_el = (soap_body.find(f"{{{HI1_NS}}}ActivateRequest")
-           or soap_body.find(f"{{{HI1_NS}}}ActivateInterceptionRequest")
-           or soap_body.find("ActivateRequest")
-           or soap_body.find("ActivateInterceptionRequest"))
+    req_el = _find(soap_body, "ActivateRequest", "ActivateInterceptionRequest")
     if req_el is not None:
         liid   = _xml(req_el, "LIID")
         lea_id = _xml(req_el, "LEAID")
@@ -992,7 +1054,7 @@ async def hi1_soap(request: Request):
 
         # InterceptionType
         itype = "IRI_AND_CC"
-        it_el = req_el.find(f"{{{HI1_NS}}}InterceptionType") or req_el.find("InterceptionType")
+        it_el = _find(req_el, "InterceptionType")
         if it_el is not None:
             iri = (_xml(it_el,"IRICapture") or _xml(it_el,"IRI")).lower() == "true"
             cc  = (_xml(it_el,"CCCapture")  or _xml(it_el,"CC")).lower()  == "true"
@@ -1000,27 +1062,34 @@ async def hi1_soap(request: Request):
 
         # TargetIdentifiers
         msisdn=""; imsi=""; imei=""
-        tgt = req_el.find(f"{{{HI1_NS}}}TargetIdentifiers") or req_el.find("TargetIdentifiers")
+        tgt = _find(req_el, "TargetIdentifiers")
         if tgt is not None:
             msisdn = _xml(tgt,"MSISDN"); imsi = _xml(tgt,"IMSI"); imei = _xml(tgt,"IMEI")
             # also look inside TargetIdentifier child
-            tid = tgt.find(f"{{{HI1_NS}}}TargetIdentifier") or tgt.find("TargetIdentifier")
+            tid = _find(tgt, "TargetIdentifier")
             if tid is not None:
                 msisdn = msisdn or _xml(tid,"MSISDN")
                 imsi   = imsi   or _xml(tid,"IMSI")
 
         # DeliveryAddress
         delivery_ip=""; delivery_port=8443
-        da_el = req_el.find(f"{{{HI1_NS}}}DeliveryAddress") or req_el.find("DeliveryAddress")
+        da_el = _find(req_el, "DeliveryAddress")
         if da_el is not None:
             delivery_ip   = _xml(da_el,"IPAddress")
             try: delivery_port = int(_xml(da_el,"Port")) if _xml(da_el,"Port") else 8443
             except: pass
 
         # Validity
-        vp_el = req_el.find(f"{{{HI1_NS}}}ValidityPeriod") or req_el.find("ValidityPeriod")
-        valid_from  = _xml(vp_el or req_el,"ValidFrom")  or datetime.utcnow().isoformat()
-        valid_until = _xml(vp_el or req_el,"ValidUntil") or "2099-12-31T23:59:59Z"
+        vp_el = _find(req_el, "ValidityPeriod")
+        validity_src = vp_el if vp_el is not None else req_el
+        valid_from  = _xml(validity_src,"ValidFrom")  or datetime.utcnow().isoformat()
+        valid_until = _xml(validity_src,"ValidUntil") or "2099-12-31T23:59:59Z"
+
+        logger.info("HI1 SOAP ActivateRequest parsed: LIID=%s LEA=%s legal=%s auth_ref=%s "
+                    "authorized_by=%s country=%s itype=%s MSISDN=%s IMSI=%s IMEI=%s "
+                    "delivery=%s:%s valid=%s..%s",
+                    liid, lea_id, legal, auth_ref, authorized_by, country_code, itype,
+                    msisdn, imsi, imei, delivery_ip, delivery_port, valid_from, valid_until)
 
         try:
             result = activate_warrant(ActivateReq(
@@ -1033,31 +1102,36 @@ async def hi1_soap(request: Request):
             ))
             xml_out = _soap_ok("Activate", liid, "SUCCESS",
                                f"Intercept activated. IMSI={imsi} MSISDN={msisdn}")
+            logger.info("HI1 SOAP: ActivateResponse SUCCESS LIID=%s", liid)
+            logger.debug("HI1 SOAP: response body:\n%s", xml_out)
             return Response(xml_out, media_type="text/xml")
         except HTTPException as e:
+            logger.warning("HI1 SOAP: ActivateRequest FAILED LIID=%s status=%s detail=%s", liid, e.status_code, e.detail)
             return Response(_soap_fault("soapenv:Server", e.detail), media_type="text/xml", status_code=e.status_code)
 
     # ── DeactivateRequest ─────────────────────────────────────
-    req_el = (soap_body.find(f"{{{HI1_NS}}}DeactivateRequest")
-           or soap_body.find(f"{{{HI1_NS}}}DeactivateInterceptionRequest")
-           or soap_body.find("DeactivateRequest"))
+    req_el = _find(soap_body, "DeactivateRequest", "DeactivateInterceptionRequest")
     if req_el is not None:
         liid   = _xml(req_el, "LIID")
         lea_id = _xml(req_el, "LEAID")
+        logger.info("HI1 SOAP DeactivateRequest parsed: LIID=%s LEA=%s", liid, lea_id)
         try:
             deactivate_warrant(DeactivateReq(liid=liid, lea_id=lea_id))
+            logger.info("HI1 SOAP: DeactivateResponse SUCCESS LIID=%s", liid)
             return Response(_soap_ok("Deactivate", liid, "SUCCESS", "Intercept deactivated"), media_type="text/xml")
         except HTTPException as e:
+            logger.warning("HI1 SOAP: DeactivateRequest FAILED LIID=%s status=%s detail=%s", liid, e.status_code, e.detail)
             return Response(_soap_fault("soapenv:Server", e.detail), media_type="text/xml", status_code=e.status_code)
 
     # ── GetInterceptionStatus ─────────────────────────────────
-    req_el = (soap_body.find(f"{{{HI1_NS}}}GetInterceptionStatusRequest")
-           or soap_body.find("GetInterceptionStatusRequest"))
+    req_el = _find(soap_body, "GetInterceptionStatusRequest")
     if req_el is not None:
         liid = _xml(req_el, "LIID")
+        logger.info("HI1 SOAP GetInterceptionStatusRequest: LIID=%s", liid)
         with db() as d:
             row = d.fetchone("SELECT * FROM warrants WHERE liid=?", (liid,))
         if not row:
+            logger.warning("HI1 SOAP: GetInterceptionStatus LIID=%s not found", liid)
             return Response(_soap_fault("soapenv:Server", f"Warrant {liid} not found"), media_type="text/xml", status_code=404)
         status = "ACTIVE" if row.get("active") else "INACTIVE"
         xml_out = (f'<?xml version="1.0" encoding="UTF-8"?>'
@@ -1068,8 +1142,11 @@ async def hi1_soap(request: Request):
                    f'<hi1:InterceptionType>{row.get("intercept_type","")}</hi1:InterceptionType>'
                    f'<hi1:ValidUntil>{row.get("valid_until","")}</hi1:ValidUntil>'
                    f'</hi1:GetInterceptionStatusResponse></soapenv:Body></soapenv:Envelope>')
+        logger.info("HI1 SOAP: GetInterceptionStatusResponse LIID=%s status=%s", liid, status)
         return Response(xml_out, media_type="text/xml")
 
+    logger.warning("HI1 SOAP: unknown/unsupported operation from IP=%s — body root tags=%s",
+                   client_ip, [c.tag for c in soap_body])
     return Response(_soap_fault("soapenv:Client", "Unknown SOAP operation"), media_type="text/xml", status_code=400)
 
 
@@ -1077,6 +1154,9 @@ async def hi1_soap(request: Request):
 
 @app.post("/x2/iri", tags=["X2"])
 def receive_iri(event: X2IriEvent, session: dict = Depends(require_auth)):
+    logger.info("X2 IRI request received: LIID=%s ne_source=%s event_type=%s encoding=%s asn1=%s user=%s",
+                event.liid, event.ne_source, event.event_type, event.encoding,
+                "yes" if event.asn1_hex else "no", session.get("username"))
     # Check warrant is active
     with _lock:
         active = _warrants.get(event.liid, {}).get("active", False)
@@ -1090,7 +1170,8 @@ def receive_iri(event: X2IriEvent, session: dict = Depends(require_auth)):
                     _warrants[event.liid] = {}
                 _warrants[event.liid]["active"] = True
     if not active:
-        logger.warning("X2: LIID=%s not active — discarding", event.liid)
+        logger.warning("X2: LIID=%s not active — discarding event_type=%s from ne_source=%s",
+                       event.liid, event.event_type, event.ne_source)
         raise HTTPException(400, f"LIID {event.liid} is not active")
 
     # Increment sequence
@@ -1156,9 +1237,9 @@ def receive_iri(event: X2IriEvent, session: dict = Depends(require_auth)):
     # HI2 push to LEA (async, non-blocking)
     _hi2_push_async(event.liid, record)
 
-    logger.info("X2 IRI [%s]: LIID=%s seq=%d event=%s asn1=%s",
+    logger.info("X2 IRI [%s]: LIID=%s seq=%d event=%s asn1=%s payload=%s db_inserted=yes hi2_push=triggered",
                 event.ne_source or "MME", event.liid, seq, event.event_type,
-                "yes" if event.asn1_hex else "no")
+                "yes" if event.asn1_hex else "no", payload_dict)
     return {"status": "accepted", "liid": event.liid, "seq": seq,
             "asn1_decoded": asn1_decoded if event.asn1_hex else None}
 
@@ -1189,9 +1270,12 @@ def get_iri_log_db(liid: Optional[str] = None, limit: int = 200, session: dict =
 
 @app.post("/x3/cc", tags=["X3"])
 def receive_cc(pkt: X3CcPacket, session: dict = Depends(require_auth)):
+    logger.info("X3 CC request received: LIID=%s ne_source=%s direction=%s deliver_sftp=%s user=%s",
+                pkt.liid, pkt.ne_source, pkt.direction, pkt.deliver_sftp, session.get("username"))
     with _lock:
         active = _warrants.get(pkt.liid, {}).get("active", False)
     if not active:
+        logger.warning("X3: LIID=%s not active — discarding CC packet from ne_source=%s", pkt.liid, pkt.ne_source)
         raise HTTPException(400, f"LIID {pkt.liid} is not active")
 
     with _lock:
@@ -1239,7 +1323,8 @@ def receive_cc(pkt: X3CcPacket, session: dict = Depends(require_auth)):
              1 if sftp_ok else 0, sftp_path,
              datetime.utcnow().isoformat()))
 
-    logger.info("X3 CC [%s]: LIID=%s seq=%d sftp=%s", pkt.ne_source or "SGW", pkt.liid, seq, sftp_ok)
+    logger.info("X3 CC [%s]: LIID=%s seq=%d sftp_delivered=%s sftp_path=%s payload=%s",
+                pkt.ne_source or "SGW", pkt.liid, seq, sftp_ok, sftp_path or "n/a", payload_dict)
     return {"status": "accepted", "liid": pkt.liid, "seq": seq,
             "sftp_delivered": sftp_ok, "sftp_path": sftp_path}
 
@@ -1272,13 +1357,17 @@ def set_sftp_config(cfg: SftpConfigReq, session: dict = Depends(require_auth)):
     global _sftp_config
     _sftp_config = {"host": cfg.host, "port": cfg.port,
                     "username": cfg.username, "password": cfg.password}
-    logger.info("SFTP config set: %s@%s:%s", cfg.username, cfg.host, cfg.port)
+    logger.info("HI3 SFTP config set by user=%s: %s@%s:%s (password redacted)",
+                session.get("username"), cfg.username, cfg.host, cfg.port)
     return {"status": "ok", "host": cfg.host, "port": cfg.port}
 
 
 @app.post("/hi3/sftp/test", tags=["HI3"])
 def test_sftp(cfg: SftpConfigReq, session: dict = Depends(require_auth)):
     """Test SFTP connectivity to the LEA machine."""
+    logger.info("HI3 SFTP test requested by user=%s: %s@%s:%s",
+                session.get("username"), cfg.username, cfg.host, cfg.port)
+    t0 = time.time()
     try:
         import paramiko
         client = paramiko.SSHClient()
@@ -1292,10 +1381,15 @@ def test_sftp(cfg: SftpConfigReq, session: dict = Depends(require_auth)):
         global _sftp_config
         _sftp_config = {"host": cfg.host, "port": cfg.port,
                         "username": cfg.username, "password": cfg.password}
+        logger.info("HI3 SFTP test OK: %s:%s remote_file_count=%d elapsed=%.2fs",
+                    cfg.host, cfg.port, len(listing), time.time() - t0)
         return {"ok": True, "host": cfg.host, "remote_files": listing[:10]}
     except ImportError:
+        logger.warning("HI3 SFTP test FAILED: paramiko not installed")
         return JSONResponse({"ok": False, "error": "paramiko not installed. pip install paramiko --break-system-packages"}, status_code=500)
     except Exception as e:
+        logger.warning("HI3 SFTP test FAILED: %s:%s error=%s elapsed=%.2fs",
+                       cfg.host, cfg.port, e, time.time() - t0)
         return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
 
 
@@ -1318,8 +1412,9 @@ def list_cc_files(session: dict = Depends(require_auth)):
                 sz = os.path.getsize(fp)
                 mtime = datetime.fromtimestamp(os.path.getmtime(fp)).isoformat()
                 files.append({"name": fname, "size": f"{sz}B", "ts": mtime})
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("HI3 list_cc_files: error scanning %s: %s", CC_RECEIVED_DIR, e)
+    logger.debug("HI3 list_cc_files: user=%s returned %d file(s)", session.get("username"), len(files))
     return {"files": sorted(files, key=lambda x: x.get("ts",""), reverse=True)[:100]}
 
 
@@ -1329,16 +1424,22 @@ def list_cc_files(session: dict = Depends(require_auth)):
 def get_ne_tasks(ne: str, session: dict = Depends(require_auth)):
     ne = ne.upper()
     if ne not in _ne_tasks:
+        logger.warning("X1: get_ne_tasks unknown NE=%s requested by user=%s", ne, session.get("username"))
         raise HTTPException(404, f"Unknown NE: {ne}")
     with _lock:
-        return list(reversed(_ne_tasks[ne]))
+        tasks = list(reversed(_ne_tasks[ne]))
+    logger.debug("X1: NE=%s polled tasks by user=%s, queue_depth=%d", ne, session.get("username"), len(tasks))
+    return tasks
 
 
 @app.delete("/x1/tasks/{ne}", tags=["X1"])
 def clear_ne_tasks(ne: str, session: dict = Depends(require_auth)):
     ne = ne.upper()
     with _lock:
+        cleared_count = len(_ne_tasks.get(ne, []))
         _ne_tasks[ne] = []
+    logger.info("X1: NE=%s task queue cleared (%d task(s) discarded) by user=%s",
+                ne, cleared_count, session.get("username"))
     return {"cleared": ne}
 
 
@@ -1668,6 +1769,8 @@ def _process_x3_ulic_packet(data: bytes, addr):
                     "UPDATE cc_log SET sftp_delivered=1 WHERE liid=? AND ts=?",
                     (liid, ts)
                 )
+        else:
+            logger.debug("X3 UDP: liid=%s seq=%d stored only — no SFTP host configured", liid, seq)
 
     except Exception as e:
         logger.warning("X3 UDP: failed to parse ULIC from %s: %s — raw hex: %s",

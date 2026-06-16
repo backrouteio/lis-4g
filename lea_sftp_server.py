@@ -90,15 +90,18 @@ def _run_sftp_server(port: int, cc_dir: str):
                     attr = paramiko.SFTPAttributes.from_stat(stat)
                     attr.filename = fname
                     entries.append(attr)
+                logger.debug("SFTP: list_folder(%s) → %d entries", path, len(entries))
                 return entries
             except OSError as e:
+                logger.warning("SFTP: list_folder(%s) failed: %s", path, e)
                 return paramiko.SFTP_PERMISSION_DENIED
 
         def stat(self, path):
             real = self._realpath(path)
             try:
                 return paramiko.SFTPAttributes.from_stat(os.stat(real))
-            except OSError:
+            except OSError as e:
+                logger.debug("SFTP: stat(%s) — not found: %s", path, e)
                 return paramiko.SFTP_NO_SUCH_FILE
 
         def lstat(self, path):
@@ -122,32 +125,53 @@ def _run_sftp_server(port: int, cc_dir: str):
                             "ts": datetime.utcnow().isoformat(),
                             "size": "—"
                         })
-                    logger.info("SFTP: receiving file → %s", real)
+                    logger.info("HI3 SFTP: receiving file → %s (path=%s)", fname, real)
+                    # Log completion + final size when the upload finishes
+                    _orig_close = obj.close
+                    def _logged_close():
+                        try:
+                            size = os.path.getsize(real)
+                        except OSError:
+                            size = -1
+                        with _lock:
+                            for rec in _cc_files:
+                                if rec.get("path") == real and rec.get("size") == "—":
+                                    rec["size"] = f"{size}B"
+                                    break
+                        logger.info("HI3 SFTP: file received complete: %s size=%dB", fname, size)
+                        _orig_close()
+                    obj.close = _logged_close
                     return obj
                 else:
                     f = open(real, "rb")
                     obj = paramiko.SFTPHandle(flags)
                     obj.readfile = f
+                    logger.debug("SFTP: read-open %s", real)
                     return obj
             except Exception as e:
-                logger.error("SFTP open error: %s", e)
+                logger.error("SFTP open error for path=%s flags=%s: %s", path, flags, e)
                 return paramiko.SFTP_FAILURE
 
         def mkdir(self, path, attr):
             real = self._realpath(path)
             try:
                 os.makedirs(real, exist_ok=True)
+                logger.debug("SFTP: mkdir %s", real)
                 return paramiko.SFTP_OK
-            except Exception:
+            except Exception as e:
+                logger.warning("SFTP: mkdir %s failed: %s", real, e)
                 return paramiko.SFTP_FAILURE
 
         def remove(self, path):
+            logger.debug("SFTP: remove(%s) — unsupported (simulator is append-only)", path)
             return paramiko.SFTP_OP_UNSUPPORTED
 
         def rename(self, oldpath, newpath):
+            logger.debug("SFTP: rename(%s → %s) — unsupported", oldpath, newpath)
             return paramiko.SFTP_OP_UNSUPPORTED
 
         def rmdir(self, path):
+            logger.debug("SFTP: rmdir(%s) — unsupported", path)
             return paramiko.SFTP_OP_UNSUPPORTED
 
         def chattr(self, path, attr):
@@ -162,24 +186,30 @@ def _run_sftp_server(port: int, cc_dir: str):
 
     class LEAServerInterface(paramiko.ServerInterface):
         def check_channel_request(self, kind, chanid):
+            logger.debug("SFTP: channel request kind=%s chanid=%s", kind, chanid)
             if kind == "session":
                 return paramiko.OPEN_SUCCEEDED
+            logger.warning("SFTP: channel request denied — unsupported kind=%s", kind)
             return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 
         def check_auth_password(self, username, password):
             # Accept any credentials in simulator mode
-            logger.info("SFTP: auth user=%s (accepted — simulator mode)", username)
+            logger.info("SFTP: auth user=%s (accepted — simulator mode, password not validated)", username)
             with _lock:
                 _sftp_clients.append(f"{username} @ {datetime.utcnow().isoformat()[:19]}")
             return paramiko.AUTH_SUCCESSFUL
 
         def check_auth_publickey(self, username, key):
+            logger.info("SFTP: auth user=%s via publickey (accepted — simulator mode)", username)
             return paramiko.AUTH_SUCCESSFUL
 
         def get_allowed_auths(self, username):
             return "password,publickey"
 
         def check_channel_subsystem_request(self, channel, name):
+            logger.debug("SFTP: subsystem request name=%s", name)
+            if name != "sftp":
+                logger.warning("SFTP: rejected unsupported subsystem request: %s", name)
             return name == "sftp"
 
     class SFTPHandle(paramiko.SFTPHandle):
@@ -199,7 +229,7 @@ def _run_sftp_server(port: int, cc_dir: str):
     while True:
         try:
             client_sock, client_addr = sock.accept()
-            logger.info("SFTP: connection from %s:%d", *client_addr)
+            logger.info("HI3 SFTP: connection accepted from %s:%d", *client_addr)
 
             t = paramiko.Transport(client_sock)
             t.add_server_key(host_key)
@@ -208,15 +238,18 @@ def _run_sftp_server(port: int, cc_dir: str):
             server = LEAServerInterface()
             try:
                 t.start_server(server=server)
+                logger.info("HI3 SFTP: transport/SSH handshake established with %s:%d", *client_addr)
             except Exception as e:
-                logger.warning("SFTP transport error: %s", e)
+                logger.warning("HI3 SFTP: transport handshake FAILED from %s:%d — %s", client_addr[0], client_addr[1], e)
                 continue
 
             chan = t.accept(20)
             if chan is None:
-                logger.warning("SFTP: no channel opened by client")
+                logger.warning("HI3 SFTP: no channel opened by client %s:%d (timeout)", *client_addr)
+            else:
+                logger.info("HI3 SFTP: channel opened by %s:%d", *client_addr)
         except Exception as e:
-            logger.error("SFTP accept error: %s", e)
+            logger.error("HI3 SFTP accept error: %s", e)
             time.sleep(1)
 
 
@@ -233,10 +266,12 @@ def _run_hi2_server(port: int, hi2_dir: str):
             logger.debug("HI2 HTTP: %s", format % args)
 
         def do_POST(self):
+            client_ip = self.client_address[0]
             if self.path in ("/hi2/iri", "/hi2"):
                 try:
                     length = int(self.headers.get("Content-Length", 0))
                     body   = self.rfile.read(length)
+                    logger.debug("HI2 POST from %s: %d bytes raw=%s", client_ip, length, body[:500])
                     event  = json.loads(body)
                     ts     = datetime.utcnow().isoformat()
                     event.setdefault("received_at", ts)
@@ -249,23 +284,30 @@ def _run_hi2_server(port: int, hi2_dir: str):
                     fpath  = os.path.join(hi2_dir, fname)
                     with open(fpath, "w") as f:
                         json.dump(event, f, indent=2)
-                    logger.info("HI2: received IRI event LIID=%s type=%s",
-                                event.get("liid","?"), event.get("event_type","?"))
+                    logger.info("HI2: received IRI event from=%s LIID=%s type=%s seq=%s ne_source=%s saved=%s",
+                                client_ip, event.get("liid","?"), event.get("event_type","?"),
+                                event.get("seq_no", event.get("hi2_seq")), event.get("ne_source","?"), fname)
                     self.send_response(200)
                     self.send_header("Content-Type","application/json")
                     self.end_headers()
                     self.wfile.write(json.dumps({"ok":True,"seq":hi2_seq[0]}).encode())
+                except json.JSONDecodeError as e:
+                    logger.warning("HI2 handler: invalid JSON from %s: %s", client_ip, e)
+                    self.send_response(400); self.end_headers()
                 except Exception as e:
-                    logger.error("HI2 handler error: %s", e)
+                    logger.error("HI2 handler error from %s: %s", client_ip, e)
                     self.send_response(500)
                     self.end_headers()
             else:
+                logger.warning("HI2 HTTP: unknown POST path=%s from=%s", self.path, client_ip)
                 self.send_response(404); self.end_headers()
 
         def do_GET(self):
+            client_ip = self.client_address[0]
             if self.path in ("/hi2/log", "/hi2/events"):
                 with _lock:
                     data = list(reversed(_hi2_events[-200:]))
+                logger.debug("HI2 HTTP: %s polled /hi2/log → %d event(s)", client_ip, len(data))
                 self.send_response(200)
                 self.send_header("Content-Type","application/json")
                 self.send_header("Access-Control-Allow-Origin","*")
@@ -280,6 +322,7 @@ def _run_hi2_server(port: int, hi2_dir: str):
                 self.end_headers()
                 self.wfile.write(json.dumps(data).encode())
             else:
+                logger.warning("HI2 HTTP: unknown GET path=%s from=%s", self.path, client_ip)
                 self.send_response(404); self.end_headers()
 
         def do_OPTIONS(self):
@@ -302,27 +345,33 @@ def _run_portal_server(port: int, portal_dir: str = "portal"):
 
     class PortalHandler(BaseHTTPRequestHandler):
         def log_message(self, format, *args):
-            pass  # suppress access logs
+            logger.debug("Portal HTTP: %s - %s", self.client_address[0], format % args)
 
         def do_GET(self):
+            client_ip = self.client_address[0]
             if self.path == "/" or self.path == "/index.html":
+                logger.debug("Portal: %s GET / (serving hi1_lea.html)", client_ip)
                 self._serve_file(os.path.join(portal_dir, "hi1_lea.html"), "text/html")
             elif self.path.endswith(".html"):
                 fname = self.path.lstrip("/")
+                logger.debug("Portal: %s GET %s", client_ip, fname)
                 self._serve_file(os.path.join(portal_dir, fname), "text/html")
             elif self.path == "/hi2/log":
                 with _lock:
                     data = list(reversed(_hi2_events[-200:]))
+                logger.debug("Portal: %s polled /hi2/log → %d event(s)", client_ip, len(data))
                 self._json(data)
             elif self.path == "/hi3/files":
                 with _lock:
                     files = list(_cc_files)
+                logger.debug("Portal: %s polled /hi3/files → %d file(s)", client_ip, len(files))
                 self._json({"files": files})
             elif self.path == "/health":
                 self._json({"status":"ok","uptime":int(time.time()-_start_time),
                             "hi2_events":len(_hi2_events),"cc_files":len(_cc_files),
                             "sftp_clients":_sftp_clients[-5:]})
             else:
+                logger.warning("Portal: %s requested unknown path=%s", client_ip, self.path)
                 self.send_response(404); self.end_headers()
 
         def _serve_file(self, path, ctype):
@@ -334,7 +383,9 @@ def _run_portal_server(port: int, portal_dir: str = "portal"):
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
                 self.wfile.write(data)
+                logger.debug("Portal: served %s (%d bytes)", path, len(data))
             except FileNotFoundError:
+                logger.warning("Portal: file not found: %s", path)
                 self.send_response(404); self.end_headers()
 
         def _json(self, data):

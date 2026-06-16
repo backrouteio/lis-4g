@@ -376,11 +376,17 @@ def _poll_x1(lis_ip, lis_port, ne_type, active_targets, lock, token=""):
     import urllib.request
     url = f"http://{lis_ip}:{lis_port}/x1/tasks/{ne_type.lower()}"
     headers = {"Authorization": f"Bearer {token}"} if token else {}
+    poll_count    = 0
+    fail_count    = 0
+    logger.info("X1 poller starting: url=%s auth=%s", url, "bearer" if token else "none")
     while True:
+        poll_count += 1
         try:
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=5) as r:
+                status = r.status
                 tasks = json.loads(r.read())
+                new_count = 0
                 if isinstance(tasks, list):
                     with lock:
                         for t in tasks:
@@ -389,11 +395,22 @@ def _poll_x1(lis_ip, lis_port, ne_type, active_targets, lock, token=""):
                             liid = t.get("liid") or t.get("li_id")
                             if liid and liid not in active_targets:
                                 active_targets[liid] = t
+                                new_count += 1
                                 logger.info("X1 ← NEW TASK  liid=%-20s imsi=%s type=%s",
                                             liid, t.get("target_imsi","?"),
                                             t.get("intercept_type","IRI+CC"))
+                if fail_count:
+                    logger.info("X1 poll: recovered after %d failed attempt(s)", fail_count)
+                fail_count = 0
+                logger.debug("X1 poll #%d: HTTP %s, %d task(s) returned, %d new, %d active total",
+                             poll_count, status, len(tasks) if isinstance(tasks, list) else -1,
+                             new_count, len(active_targets))
         except Exception as e:
-            logger.debug("X1 poll: %s", e)
+            fail_count += 1
+            if fail_count in (1, 5) or fail_count % 20 == 0:
+                logger.warning("X1 poll failed (%d consecutive): %s — url=%s", fail_count, e, url)
+            else:
+                logger.debug("X1 poll: %s", e)
         time.sleep(5)
 
 
@@ -442,7 +459,10 @@ class X2Client:
                 try: self._sock.close()
                 except: pass
                 self._sock = None
+            was_connected = self._connected
             self._connected = False
+        if was_connected:
+            logger.debug("X2 TCP: disconnected from %s:%d (buffered=%d)", self.host, self.port, len(self._buf))
 
     def _flush_buffer(self):
         flushed = 0
@@ -468,6 +488,9 @@ class X2Client:
         self._seq += 1
         asn1_bytes = encode_iri_asn1(params)
         frame      = tpkt_wrap(asn1_bytes)   # RFC 1006 TPKT framing
+        logger.debug("X2 encode: liid=%s event=%s seq=%d ber_bytes=%d tpkt_bytes=%d params=%s",
+                     params.get("liid","?"), params.get("event_key","?"), params["seq"],
+                     len(asn1_bytes), len(frame), {k:v for k,v in params.items() if k not in ("event_key",)})
 
         with self._lock:
             connected = self._connected
@@ -475,8 +498,9 @@ class X2Client:
 
         if not connected:
             self._buf.append(frame)
-            logger.info("X2 IRI cached (DF2 offline): liid=%s event=%s seq=%d",
-                        params.get("liid","?"), params.get("event_key","?"), params["seq"])
+            logger.info("X2 IRI cached (DF2 offline): liid=%s event=%s seq=%d buffer_depth=%d/%d",
+                        params.get("liid","?"), params.get("event_key","?"), params["seq"],
+                        len(self._buf), self.MAX_BUFFER)
             threading.Thread(target=self._bg_reconnect, daemon=True).start()
             return False
 
@@ -486,17 +510,20 @@ class X2Client:
                          IRI_CONTINUE:"CONTINUE", IRI_REPORT:"REPORT"}
             desc = EVENTS.get(params.get("event_key",""), ("?",))[0]
             iri  = iri_names.get(params.get("iri_type", IRI_BEGIN), "?")
-            logger.info("X2 TCP IRI → liid=%-18s %-40s %-8s [%dB BER+TPKT]",
-                        params.get("liid","?"), desc, iri, len(asn1_bytes))
+            logger.info("X2 TCP IRI → liid=%-18s %-40s %-8s [%dB BER+TPKT] seq=%d imsi=%s msisdn=%s",
+                        params.get("liid","?"), desc, iri, len(asn1_bytes), params["seq"],
+                        params.get("imsi","?"), params.get("msisdn","?"))
             return True
         except Exception as e:
-            logger.warning("X2 TCP send failed: %s — caching IRI", e)
+            logger.warning("X2 TCP send failed: %s — caching IRI liid=%s seq=%d", e,
+                           params.get("liid","?"), params["seq"])
             self._buf.append(frame)
             self._disconnect()
             threading.Thread(target=self._bg_reconnect, daemon=True).start()
             return False
 
     def _bg_reconnect(self):
+        logger.debug("X2 TCP: scheduling reconnect to %s:%d in %ds", self.host, self.port, self.RECONNECT_DELAY)
         time.sleep(self.RECONNECT_DELAY)
         self.connect()
 
@@ -522,12 +549,15 @@ class X3UDPClient:
             pkt = builder(liid, self._seq, payload, direction, content_type)
             self._sock.sendto(pkt, (self.host, self.port))
             dir_s = "UL" if direction == UPLINK else "DL"
-            logger.info("X3 UDP ULIC%-3s → liid=%-18s seq=%-4d %s %dB CC",
-                        self.version, liid, self._seq, dir_s, len(payload))
+            logger.info("X3 UDP ULIC%-3s → liid=%-18s seq=%-4d %s %dB CC → %s:%d",
+                        self.version, liid, self._seq, dir_s, len(payload), self.host, self.port)
+            logger.debug("X3 UDP packet: liid=%s seq=%d src_ip=%s dst_ip=%s content_type=%d hdr+payload=%dB hex_preview=%s",
+                         liid, self._seq, src_ip, dst_ip, content_type, len(pkt), pkt[:32].hex())
             self._seq += 1
             return True
         except Exception as e:
-            logger.error("X3 UDP send: %s", e)
+            logger.error("X3 UDP send failed: liid=%s seq=%d dest=%s:%d — %s",
+                         liid, self._seq, self.host, self.port, e)
             return False
 
 
@@ -565,18 +595,34 @@ class X3TCPClient:
         try:
             with self._lock:
                 if not self._sock:
+                    logger.debug("X3 TCP: no active socket, reconnecting before send")
                     self.connect()
                 self._sock.sendall(pkt)
             dir_s = "UL" if direction == UPLINK else "DL"
-            logger.info("X3 TCP ULIC%-3s → liid=%-18s seq=%-4d %s %dB CC",
-                        self.version, liid, self._seq, dir_s, len(payload))
+            logger.info("X3 TCP ULIC%-3s → liid=%-18s seq=%-4d %s %dB CC → %s:%d",
+                        self.version, liid, self._seq, dir_s, len(payload), self.host, self.port)
+            logger.debug("X3 TCP packet: liid=%s seq=%d src_ip=%s dst_ip=%s content_type=%d hdr+payload=%dB hex_preview=%s",
+                         liid, self._seq, src_ip, dst_ip, content_type, len(pkt), pkt[:32].hex())
             self._seq += 1
             return True
         except Exception as e:
-            logger.error("X3 TCP send: %s", e)
+            logger.error("X3 TCP send failed: liid=%s seq=%d dest=%s:%d — %s",
+                         liid, self._seq, self.host, self.port, e)
             with self._lock:
                 self._sock = None
             return False
+
+
+def _status_logger(active_targets, lock, x2, x3_udp, x3_tcp, interval=15):
+    """Periodic heartbeat so operators can confirm the simulator is alive and connected."""
+    while True:
+        time.sleep(interval)
+        with lock:
+            n_targets = len(active_targets)
+        x2_state  = "connected" if x2._connected else "disconnected (caching)"
+        x3t_state = "connected" if x3_tcp._sock else "disconnected"
+        logger.info("STATUS: active_targets=%d  X2_TCP=%s(seq=%d,buffered=%d)  X3_UDP=ready(seq=%d)  X3_TCP=%s(seq=%d)",
+                    n_targets, x2_state, x2._seq, len(x2._buf), x3_udp._seq, x3t_state, x3_tcp._seq)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -660,6 +706,7 @@ def _pick_target(active_targets, lock):
 def _build_params(t, event_key, args):
     _desc, gprs_code, iri_type = EVENTS[event_key]
     liid = t.get("liid") or t.get("li_id", "TEST-LIID")
+    logger.debug("Building IRI params: liid=%s event_key=%s gprs_code=%d iri_type=%d", liid, event_key, gprs_code, iri_type)
     return {
         "liid":      liid,
         "event_key": event_key,
@@ -827,6 +874,13 @@ if __name__ == "__main__":
     # X3 TCP (ULICv1)
     x3_tcp = X3TCPClient(args.lis_ip, args.x3_tcp_port, ulic_version="v1")
     x3_tcp.connect()
+
+    # Periodic status heartbeat (every 15s) for live validation
+    threading.Thread(
+        target=_status_logger,
+        args=(active_targets, lock, x2, x3_udp, x3_tcp),
+        daemon=True, name="status-log"
+    ).start()
 
     if args.auto:
         logger.info("AUTO-DEMO: events sent automatically on X1 task receipt")
