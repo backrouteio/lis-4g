@@ -1153,11 +1153,10 @@ async def hi1_soap(request: Request):
 # ── X2 — IRI Events from NE (ASN.1 BER supported) ────────────
 
 @app.post("/x2/iri", tags=["X2"])
-def receive_iri(event: X2IriEvent, request: Request):
-    """X2 IRI receiver — no auth required for NE submission (testing mode)"""
-    logger.info("X2 IRI request received: LIID=%s ne_source=%s event_type=%s encoding=%s asn1=%s client_ip=%s",
+def receive_iri(event: X2IriEvent, session: dict = Depends(require_auth)):
+    logger.info("X2 IRI request received: LIID=%s ne_source=%s event_type=%s encoding=%s asn1=%s user=%s",
                 event.liid, event.ne_source, event.event_type, event.encoding,
-                "yes" if event.asn1_hex else "no", request.client.host if request.client else "unknown")
+                "yes" if event.asn1_hex else "no", session.get("username"))
     # Check warrant is active
     with _lock:
         active = _warrants.get(event.liid, {}).get("active", False)
@@ -1426,11 +1425,11 @@ def get_ne_tasks(ne: str, request: Request):
     """X1 provisioning tasks — no auth required for NE polling (testing mode)"""
     ne = ne.upper()
     if ne not in _ne_tasks:
-        logger.warning("X1: get_ne_tasks unknown NE=%s client_ip=%s", ne, request.client.host if request.client else "unknown")
+        logger.warning("X1: get_ne_tasks unknown NE=%s requested by user=%s", ne, request.client.host if request.client else "unknown")
         raise HTTPException(404, f"Unknown NE: {ne}")
     with _lock:
         tasks = list(reversed(_ne_tasks[ne]))
-    logger.info("X1: NE=%s polled tasks client_ip=%s queue_depth=%d", ne, request.client.host if request.client else "unknown", len(tasks))
+    logger.debug("X1: NE=%s polled tasks by user=%s, queue_depth=%d", ne, request.client.host if request.client else "unknown", len(tasks))
     return tasks
 
 
