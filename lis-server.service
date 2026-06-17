@@ -9,7 +9,7 @@ User=root
 Group=root
 WorkingDirectory=/root/lis-4g
 
-ExecStart=/usr/bin/python3 /root/lis-4g/run_standalone.py --host 0.0.0.0 --port 8001 --sftp-host 10.80.20.45 --sftp-port 2222 --sftp-user lea --sftp-pass lea
+ExecStart=/usr/bin/python3 /root/lis-4g/run_standalone.py --host 0.0.0.0 --port 8001 --ftp-host 10.80.20.45 --ftp-port 21 --ftp-user lea --ftp-pass lea
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=10
