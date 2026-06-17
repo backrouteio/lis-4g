@@ -489,7 +489,8 @@ async function fetchIRI() {
 }
 function renderIRI(){
   const f=document.getElementById('iriFilter').value;
-  const list=f?iriData.filter(e=>e.event_type===f):iriData;
+  const filtered=iriData.filter(e=>e.event_type!=='UNKNOWN'&&e.liid!=='UNKNOWN');
+  const list=f?filtered.filter(e=>e.event_type===f):filtered;
   document.getElementById('iriCount').textContent=list.length;
   const el=document.getElementById('iriLog');
   if(!list.length){el.innerHTML='<div class="log-empty">No IRI events</div>';return;}

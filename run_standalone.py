@@ -262,6 +262,7 @@ def _sqlite_init():
             id             INTEGER PRIMARY KEY AUTOINCREMENT,
             liid           TEXT,
             seq            INTEGER,
+            ts             TEXT,
             ne_source      TEXT,
             direction      TEXT,
             src_ip         TEXT,
@@ -272,7 +273,7 @@ def _sqlite_init():
             created_at     TEXT
         )
     """)
-    for col, defn in [("ne_source","TEXT"), ("payload","TEXT"),
+    for col, defn in [("ts","TEXT"), ("ne_source","TEXT"), ("payload","TEXT"),
                       ("sftp_delivered","INTEGER DEFAULT 0"), ("sftp_path","TEXT")]:
         try: con.execute(f"ALTER TABLE cc_log ADD COLUMN {col} {defn}")
         except: pass
