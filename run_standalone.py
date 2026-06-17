@@ -1810,7 +1810,7 @@ if __name__ == "__main__":
 ║      DoT / MHA Authorised Lawful Interception System         ║
 ╠══════════════════════════════════════════════════════════════╣
 ║  HI1  SOAP   HTTP  :{args.port:<5}  /hi1/soap  (ETSI TS 103 120)║
-║  HI2  PUSH   HTTP  → LEA:{args.sftp_port:<5} (IRI delivery)       ║
+║  HI2  PUSH   HTTP  → LEA:8443  (IRI delivery)       ║
 ║  HI3  FTP    {sftp_label:<47}║
 ╠══════════════════════════════════════════════════════════════╣
 ║  X1   HTTP   GET   :{args.port:<5}  /x1/tasks/{{mme|sgw|pgw}}  ║
