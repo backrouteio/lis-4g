@@ -509,7 +509,7 @@ function renderIRI(){
   }).join('');
 }
 async function clearIRILocal(){
-  try{await fetch('/x2/iri/log/clear',{method:'DELETE',headers:{'Authorization':`Bearer ${token}`}});
+  try{await api('/x2/iri/log/clear',{method:'DELETE'});
   iriData=[];renderIRI();document.getElementById('statIRI').textContent='0';
   console.log('[IRI] Logs cleared from server and UI');}catch(e){alert('Clear failed: '+e.message);}
 }
@@ -541,7 +541,7 @@ function renderCC(){
   }).join('');
 }
 async function clearCCLocal(){
-  try{await fetch('/x3/cc/log/clear',{method:'DELETE',headers:{'Authorization':`Bearer ${token}`}});
+  try{await api('/x3/cc/log/clear',{method:'DELETE'});
   ccData=[];renderCC();document.getElementById('statCC').textContent='0';
   console.log('[CC] Logs cleared from server and UI');}catch(e){alert('Clear failed: '+e.message);}
 }
