@@ -1,5 +1,5 @@
 [Unit]
-Description=LEA SFTP Server & HI2/HI3 Receiver - Lawful Interception Agent
+Description=LEA FTP Server & HI2/HI3 Receiver - Lawful Interception Agent
 Documentation=https://github.com/backrouteio/lis-4g
 After=network.target
 
@@ -9,7 +9,7 @@ User=root
 Group=root
 WorkingDirectory=/root/lis-4g
 
-ExecStart=/usr/bin/python3 /root/lis-4g/lea_sftp_server.py
+ExecStart=/usr/bin/python3 /root/lis-4g/lea_ftp_server.py --ftp-port 21
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=10

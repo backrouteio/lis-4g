@@ -522,30 +522,31 @@ CC_RECEIVED_DIR = "cc_received"
 def _ensure_cc_dir():
     os.makedirs(CC_RECEIVED_DIR, exist_ok=True)
 
-def _deliver_sftp(liid: str, seq: int, payload: dict) -> tuple[bool, str]:
+def _deliver_ftp(liid: str, seq: int, payload: dict) -> tuple[bool, str]:
     """
-    Deliver CC packet to LEA SFTP server.
+    Deliver CC packet to LEA FTP server (HI3).
     Creates a binary file with the CC content and uploads it.
+    Plaintext FTP for packet capture with tcpdump.
     Returns (success, remote_path).
     """
     if not _sftp_config.get("host"):
-        logger.debug("HI3 SFTP: skipped for LIID=%s seq=%d — no SFTP host configured", liid, seq)
+        logger.debug("HI3 FTP: skipped for LIID=%s seq=%d — no FTP host configured", liid, seq)
         return False, ""
     t0 = time.time()
-    logger.info("HI3 SFTP: connecting to %s:%s user=%s for LIID=%s seq=%d",
-                _sftp_config["host"], _sftp_config.get("port", 2222), _sftp_config.get("username","lea"), liid, seq)
+    logger.info("HI3 FTP: connecting to %s:%s user=%s for LIID=%s seq=%d",
+                _sftp_config["host"], _sftp_config.get("port", 21), _sftp_config.get("username","lea"), liid, seq)
     try:
-        import paramiko
-        client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        client.connect(
-            hostname=_sftp_config["host"],
-            port=int(_sftp_config.get("port", 2222)),
-            username=_sftp_config.get("username", "lea"),
-            password=_sftp_config.get("password", ""),
-            timeout=10,
+        from ftplib import FTP, error_perm, error_temp
+        ftp = FTP()
+        ftp.connect(
+            host=_sftp_config["host"],
+            port=int(_sftp_config.get("port", 21)),
+            timeout=10
         )
-        sftp = client.open_sftp()
+        ftp.login(
+            user=_sftp_config.get("username", "lea"),
+            passwd=_sftp_config.get("password", "")
+        )
         # Build CC file content
         cc_data = json.dumps({
             "liid": liid, "seq": seq,
@@ -557,11 +558,14 @@ def _deliver_sftp(liid: str, seq: int, payload: dict) -> tuple[bool, str]:
         fname       = f"cc_{liid}_{seq:06d}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
         remote_path = f"{remote_dir}/{fname}"
         # Ensure remote dir exists
-        try: sftp.mkdir(remote_dir)
-        except: pass
+        try:
+            ftp.mkd(remote_dir)
+        except (error_perm, error_temp):
+            pass  # Dir likely exists
+        ftp.cwd(remote_dir)
         import io
-        sftp.putfo(io.BytesIO(cc_data), remote_path)
-        sftp.close(); client.close()
+        ftp.storbinary(f"STOR {fname}", io.BytesIO(cc_data))
+        ftp.quit()
         # Track locally too
         _ensure_cc_dir()
         local_path = os.path.join(CC_RECEIVED_DIR, fname)
@@ -569,17 +573,13 @@ def _deliver_sftp(liid: str, seq: int, payload: dict) -> tuple[bool, str]:
             f.write(cc_data)
         with _lock:
             _cc_files.append({"name": fname, "liid": liid, "size": f"{len(cc_data)}B", "ts": datetime.utcnow().isoformat()})
-        logger.info("HI3 SFTP: delivered LIID=%s seq=%d → %s:%s/%s size=%dB elapsed=%.2fs",
-                    liid, seq, _sftp_config["host"], _sftp_config.get("port",2222), remote_path,
+        logger.info("HI3 FTP: delivered LIID=%s seq=%d → %s:%s/%s size=%dB elapsed=%.2fs",
+                    liid, seq, _sftp_config["host"], _sftp_config.get("port",21), remote_path,
                     len(cc_data), time.time()-t0)
         return True, remote_path
-    except ImportError:
-        logger.warning("HI3 SFTP: paramiko not installed — delivery skipped for LIID=%s. "
-                       "pip install paramiko --break-system-packages", liid)
-        return False, "paramiko_not_installed"
     except Exception as e:
-        logger.warning("HI3 SFTP: delivery FAILED for LIID=%s seq=%d host=%s:%s — %s (elapsed=%.2fs)",
-                       liid, seq, _sftp_config.get("host"), _sftp_config.get("port",2222), e, time.time()-t0)
+        logger.warning("HI3 FTP: delivery FAILED for LIID=%s seq=%d host=%s:%s — %s (elapsed=%.2fs)",
+                       liid, seq, _sftp_config.get("host"), _sftp_config.get("port",21), e, time.time()-t0)
         return False, f"error: {e}"
 
 
@@ -1284,7 +1284,7 @@ def receive_cc(pkt: X3CcPacket, session: dict = Depends(require_auth)):
     # SFTP delivery
     sftp_ok, sftp_path = False, ""
     if pkt.deliver_sftp and _sftp_config.get("host"):
-        sftp_ok, sftp_path = _deliver_sftp(pkt.liid, seq, payload_dict)
+        sftp_ok, sftp_path = _deliver_ftp(pkt.liid, seq, payload_dict)
 
     record = {
         "liid":       pkt.liid,
@@ -1751,7 +1751,7 @@ def _process_x3_ulic_packet(data: bytes, addr):
 
         # SFTP delivery to LEA
         if _sftp_config.get("host"):
-            _deliver_sftp(liid, seq, payload)
+            _deliver_ftp(liid, seq, payload)
             with db() as d:
                 d.execute(
                     "UPDATE cc_log SET sftp_delivered=1 WHERE liid=? AND ts=?",
@@ -1775,10 +1775,10 @@ if __name__ == "__main__":
     parser.add_argument("--host",         default="0.0.0.0")
     parser.add_argument("--db-url",       default="",
         help="PostgreSQL URL: postgresql://lis:secret@localhost/lisdb  (default: SQLite)")
-    parser.add_argument("--sftp-host",    default="", help="LEA SFTP host for HI3 CC delivery")
-    parser.add_argument("--sftp-port",    type=int, default=2222)
-    parser.add_argument("--sftp-user",    default="lea")
-    parser.add_argument("--sftp-pass",    default="")
+    parser.add_argument("--ftp-host",     default="", help="LEA FTP host for HI3 CC delivery")
+    parser.add_argument("--ftp-port",     type=int, default=21)
+    parser.add_argument("--ftp-user",     default="lea")
+    parser.add_argument("--ftp-pass",     default="")
     parser.add_argument("--x2-port",      type=int, default=4000,
         help="X2 TCP port for ASN.1 BER IRI from NE (TS 33.108 Annex B.9)")
     parser.add_argument("--x3-port",      type=int, default=4001,
@@ -1787,9 +1787,9 @@ if __name__ == "__main__":
 
     DB_URL = args.db_url
 
-    if args.sftp_host:
-        _sftp_config.update({"host": args.sftp_host, "port": args.sftp_port,
-                              "username": args.sftp_user, "password": args.sftp_pass})
+    if args.ftp_host:
+        _sftp_config.update({"host": args.ftp_host, "port": args.ftp_port,
+                              "username": args.ftp_user, "password": args.ftp_pass})
 
     _ensure_cc_dir()
     db_init()
@@ -1802,7 +1802,7 @@ if __name__ == "__main__":
                      daemon=True, name="X3-UDP").start()
 
     db_label   = f"PostgreSQL ({args.db_url.split('@')[-1]})" if _is_pg() else f"SQLite ({SQLITE_PATH})"
-    sftp_label = f"SFTP → {args.sftp_host}:{args.sftp_port}" if args.sftp_host else "SFTP not configured"
+    sftp_label = f"FTP → {args.ftp_host}:{args.ftp_port}" if args.ftp_host else "FTP not configured"
 
     print(f"""
 ╔══════════════════════════════════════════════════════════════╗
@@ -1811,7 +1811,7 @@ if __name__ == "__main__":
 ╠══════════════════════════════════════════════════════════════╣
 ║  HI1  SOAP   HTTP  :{args.port:<5}  /hi1/soap  (ETSI TS 103 120)║
 ║  HI2  PUSH   HTTP  → LEA:{args.sftp_port:<5} (IRI delivery)       ║
-║  HI3  SFTP   {sftp_label:<47}║
+║  HI3  FTP    {sftp_label:<47}║
 ╠══════════════════════════════════════════════════════════════╣
 ║  X1   HTTP   GET   :{args.port:<5}  /x1/tasks/{{mme|sgw|pgw}}  ║
 ║  X2   TCP    BER   :{args.x2_port:<5}  ASN.1 IRI (TS 33.108 B.9)║
