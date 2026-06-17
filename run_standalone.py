@@ -1337,6 +1337,28 @@ def get_cc_log_db(liid: Optional[str] = None, limit: int = 200, session: dict = 
     return rows
 
 
+@app.delete("/x2/iri/log/clear", tags=["X2"])
+def clear_iri_log(session: dict = Depends(require_auth)):
+    """Clear all IRI logs from memory and database."""
+    with _lock:
+        _iri_events.clear()
+    with db() as d:
+        d.execute("DELETE FROM iri_log")
+    logger.info("IRI logs cleared by user=%s", session.get("username"))
+    return {"status": "ok", "message": "IRI logs cleared"}
+
+
+@app.delete("/x3/cc/log/clear", tags=["X3"])
+def clear_cc_log(session: dict = Depends(require_auth)):
+    """Clear all CC logs from memory and database."""
+    with _lock:
+        _cc_events.clear()
+    with db() as d:
+        d.execute("DELETE FROM cc_log")
+    logger.info("CC logs cleared by user=%s", session.get("username"))
+    return {"status": "ok", "message": "CC logs cleared"}
+
+
 # ── SFTP config & test ────────────────────────────────────────
 
 @app.post("/hi3/sftp/config", tags=["HI3"])

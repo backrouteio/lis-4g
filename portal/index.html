@@ -508,7 +508,11 @@ function renderIRI(){
     </div>`;
   }).join('');
 }
-function clearIRILocal(){iriData=[];renderIRI();document.getElementById('statIRI').textContent='0';}
+async function clearIRILocal(){
+  try{await fetch('/x2/iri/log/clear',{method:'DELETE',headers:{'Authorization':`Bearer ${token}`}});
+  iriData=[];renderIRI();document.getElementById('statIRI').textContent='0';
+  console.log('[IRI] Logs cleared from server and UI');}catch(e){alert('Clear failed: '+e.message);}
+}
 
 /* CC */
 async function fetchCC() {
@@ -536,7 +540,11 @@ function renderCC(){
     </div>`;
   }).join('');
 }
-function clearCCLocal(){ccData=[];renderCC();document.getElementById('statCC').textContent='0';}
+async function clearCCLocal(){
+  try{await fetch('/x3/cc/log/clear',{method:'DELETE',headers:{'Authorization':`Bearer ${token}`}});
+  ccData=[];renderCC();document.getElementById('statCC').textContent='0';
+  console.log('[CC] Logs cleared from server and UI');}catch(e){alert('Clear failed: '+e.message);}
+}
 
 /* Health */
 async function fetchHealth() {

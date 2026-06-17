@@ -447,9 +447,9 @@
 
     <!-- HI3 Protocol banner -->
     <div style="padding:8px 16px;background:rgba(219,109,40,.06);border-bottom:1px solid var(--border);font-size:11px;display:flex;gap:16px;flex-wrap:wrap;">
-      <span>📁 <strong>HI3 Delivery:</strong> SFTP (port 2222) → cc_received/ directory</span>
-      <span>📦 <strong>Format:</strong> GTP-U encapsulated user-plane packets (PCAP/BIN)</span>
-      <span>🔒 <strong>Auth:</strong> SSH key or password</span>
+      <span>📁 <strong>HI3 Delivery:</strong> FTP (port 21) → cc_received/ directory (plaintext, tcpdump capturable)</span>
+      <span>📦 <strong>Format:</strong> GTP-U encapsulated user-plane packets (JSON + binary)</span>
+      <span>🔒 <strong>Auth:</strong> Username/password (lea/lea)</span>
     </div>
 
     <!-- SFTP Connection Status -->
@@ -955,7 +955,11 @@ function clearAsn1View(){
   document.getElementById('asn1HexBox').textContent='Click an IRI event row to inspect.';
   document.getElementById('asn1DecodedBox').textContent='—';
 }
-function clearIRIDisplay(){ iriData=[]; renderIRI(); document.getElementById('iriCount').textContent='0'; document.getElementById('hi2TabCount').textContent='0'; }
+async function clearIRIDisplay(){
+  try{await apiFetch(LIS_BASE+'/x2/iri/log/clear',{method:'DELETE'});
+  iriData=[]; renderIRI(); document.getElementById('iriCount').textContent='0'; document.getElementById('hi2TabCount').textContent='0';
+  console.log('[IRI] Logs cleared from server and UI');}catch(e){alert('Clear failed: '+e.message);}
+}
 
 /* ══ HI3 CC ══ */
 function startCCPoll(){ if(!ccPollTimer){ fetchCC(); ccPollTimer=setInterval(fetchCC,5000);} }
@@ -1041,7 +1045,11 @@ async function fetchCCFiles(){
   }catch(e){el.innerHTML='<div class="log-empty" style="color:var(--red)">Cannot fetch file list: '+esc(e.message)+'</div>';}
 }
 
-function clearCCDisplay(){ ccData=[]; renderCC(); }
+async function clearCCDisplay(){
+  try{await apiFetch(LIS_BASE+'/x3/cc/log/clear',{method:'DELETE'});
+  ccData=[]; renderCC(); document.getElementById('ccCount').textContent='0'; document.getElementById('hi3TabCount').textContent='0';
+  console.log('[CC] Logs cleared from server and UI');}catch(e){alert('Clear failed: '+e.message);}
+}
 
 /* ══ Helpers ══ */
 function safeJson(v){if(!v)return{};if(typeof v==='object')return v;try{return JSON.parse(v);}catch{return{};}}
