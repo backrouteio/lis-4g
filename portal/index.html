@@ -297,13 +297,13 @@
     <div class="section-head">
       <div class="section-title">📦 CC Packet Log — X3 / HI3 <span class="count-badge" id="ccCount">0</span></div>
       <div class="section-actions">
-        <span class="pill pill-blue" style="font-size:10px">SFTP→LEA:2222</span>
+        <span class="pill pill-blue" style="font-size:10px">FTP→LEA:21</span>
         <button class="btn-sm" onclick="fetchCC()">↻ Refresh</button>
         <button class="btn-sm btn-danger" onclick="clearCCLocal()">✕ Clear</button>
       </div>
     </div>
     <div class="log-col-hdr" style="grid-template-columns:150px 90px 80px 80px 80px 1fr">
-      <span>Timestamp (IST)</span><span>NE Source</span><span>LI-ID</span><span>Protocol</span><span>Size</span><span>SFTP Delivery</span>
+      <span>Timestamp (IST)</span><span>NE Source</span><span>LI-ID</span><span>Protocol</span><span>Size</span><span>FTP Delivery</span>
     </div>
     <div id="ccLog" style="max-height:260px;overflow-y:auto">
       <div class="log-empty">No CC packets yet</div>
@@ -528,7 +528,7 @@ function renderCC(){
   el.innerHTML=ccData.slice(0,100).map(p=>{
     const pay=safeJson(p.payload);
     const sftp=p.sftp_delivered
-      ?`<span class="pill pill-green" style="font-size:10px">✓ SFTP</span> ${esc(pay.sftp_path||'')}`
+      ?`<span class="pill pill-green" style="font-size:10px">✓ FTP</span> ${esc(pay.sftp_path||'')}`
       :`<span class="pill pill-yellow" style="font-size:10px">Pending</span>`;
     return `<div class="log-row" style="grid-template-columns:150px 90px 80px 80px 80px 1fr">
       <span class="mono" style="color:var(--muted);font-size:11px">${fmtTs(p.ts)}</span>
@@ -560,7 +560,7 @@ async function fetchHealth() {
       <div class="health-item"><div class="health-label">HI1 / ADMF</div><div class="health-val" style="color:var(--green)">● SOAP Ready</div></div>
       <div class="health-item"><div class="health-label">IRI-MF (X2→HI2)</div><div class="health-val" style="color:var(--green)">● ASN.1 BER</div></div>
       <div class="health-item"><div class="health-label">CC-MF (X3→HI3)</div><div class="health-val" style="color:${h.sftp_configured?'var(--green)':'var(--yellow)'}">
-        ${h.sftp_configured?'● SFTP Ready':'⚠ SFTP not configured'}</div></div>
+        ${h.sftp_configured?'● FTP Ready':'⚠ FTP not configured'}</div></div>
       <div class="health-item"><div class="health-label">Uptime</div><div class="health-val">${fmtUptime(h.uptime_seconds)}</div></div>
       <div class="health-item"><div class="health-label">Version</div><div class="health-val">${esc(h.version||'v2.0')}</div></div>`;
   } catch(e) {

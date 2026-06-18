@@ -217,8 +217,8 @@
   </div>
   <span class="sep">|</span>
   <div class="cfg-group">
-    <label>SFTP (HI3):</label>
-    <input class="cfg-input" id="cfgSftpHost" value="" placeholder="LEA SFTP host">
+    <label>FTP (HI3):</label>
+    <input class="cfg-input" id="cfgSftpHost" value="" placeholder="LEA FTP host">
     <input class="cfg-input" id="cfgSftpPort" value="2222" placeholder="Port" style="width:65px">
     <input class="cfg-input" id="cfgSftpUser" value="lea" placeholder="User" style="width:80px">
     <input class="cfg-input" id="cfgSftpPass" value="" placeholder="Password" style="width:100px;font-family:monospace">
@@ -463,7 +463,7 @@
     </div>
 
     <div class="log-col-hdr" style="grid-template-columns:155px 90px 85px 85px 80px 1fr">
-      <span>Timestamp (IST)</span><span>NE Source</span><span>LI-ID</span><span>Protocol</span><span>Size</span><span>SFTP File Path / Delivery Status</span>
+      <span>Timestamp (IST)</span><span>NE Source</span><span>LI-ID</span><span>Protocol</span><span>Size</span><span>FTP File Path / Delivery Status</span>
     </div>
     <div id="ccLog" style="max-height:360px;overflow-y:auto">
       <div class="log-empty">No CC packets received yet. Warrant must have CC enabled and X3 data must be sent by SGW/PGW simulator.</div>
@@ -473,13 +473,13 @@
   <!-- CC File Listing -->
   <div class="panel">
     <div class="panel-head">
-      <div class="panel-title">📂 Received CC Files (SFTP: cc_received/)</div>
+      <div class="panel-title">📂 Received CC Files (FTP: cc_received/)</div>
       <div class="panel-actions">
         <button class="btn btn-sm" onclick="fetchCCFiles()">↻ Refresh</button>
       </div>
     </div>
     <div id="ccFileList" style="padding:16px">
-      <div class="log-empty">No CC files received yet. SFTP delivery will place files in cc_received/ on the LEA machine.</div>
+      <div class="log-empty">No CC files received yet. FTP delivery will place files in cc_received/ on the LEA machine.</div>
     </div>
   </div>
 </div>
@@ -985,8 +985,8 @@ function renderCC(){
     const pay=safeJson(p.payload);
     const delivered=p.sftp_delivered;
     const sftp=delivered
-      ?`<span class="pill pill-green" style="font-size:10px">✓ SFTP</span> <span class="mono" style="font-size:10px">${esc(pay.sftp_path||'cc_received/')}</span>`
-      :`<span class="pill pill-yellow" style="font-size:10px">⏳ Pending SFTP</span>`;
+      ?`<span class="pill pill-green" style="font-size:10px">✓ FTP</span> <span class="mono" style="font-size:10px">${esc(pay.sftp_path||'cc_received/')}</span>`
+      :`<span class="pill pill-yellow" style="font-size:10px">⏳ Pending FTP</span>`;
     return `<div class="log-entry" style="grid-template-columns:155px 90px 85px 85px 80px 1fr">
       <span class="mono" style="color:var(--muted);font-size:11px">${fmtTs(p.ts)}</span>
       <span class="pill ${neCol(p.ne_source)}" style="font-size:10px">${esc(p.ne_source||'SGW')}</span>
@@ -1017,7 +1017,7 @@ async function testSFTP(){
       st.textContent='● SFTP Failed'; st.className='badge badge-red';
       dt.textContent=d.error||'Connection failed';
     }
-  }catch(e){ st.textContent='● SFTP Error'; st.className='badge badge-red'; dt.textContent=e.message; }
+  }catch(e){ st.textContent='● FTP Error'; st.className='badge badge-red'; dt.textContent=e.message; }
 }
 
 async function fetchCCFiles(){
