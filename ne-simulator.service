@@ -9,7 +9,7 @@ User=root
 Group=root
 WorkingDirectory=/root/lis-4g
 
-ExecStart=/usr/bin/python3 /root/lis-4g/ne_simulator.py --lis-ip 10.80.20.56 --lis-port 8001 --x2-port 4000 --x3-port 4001 --ne mme --auto
+ExecStart=/usr/bin/python3 /root/lis-4g/ne_simulator.py --lis-ip 10.80.20.85 --lis-port 8001 --x2-port 4000 --x3-port 4001 --ne mme --auto
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=10
