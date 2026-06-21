@@ -17,6 +17,7 @@ import logging
 import struct
 import socket
 import uuid
+import threading
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 from pathlib import Path
@@ -312,6 +313,25 @@ class Database:
         conn.commit()
         conn.close()
 
+    def log_iri_event(self, liid: str, event_id: str, event_name: str) -> None:
+        """Log X2 IRI event received from NE"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        now = datetime.utcnow().isoformat()
+
+        try:
+            cursor.execute('''
+                INSERT INTO iri_events (
+                    liid, event_id, event_name, ts, status, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            ''', (liid, event_id, event_name, __import__('time').time(), 'Delivered', now))
+            conn.commit()
+            logger.info(f"X2 RECEIVED: {event_name} (ID:{event_id}) for LIID={liid}")
+        except sqlite3.IntegrityError:
+            logger.warning(f"Duplicate event: {event_id}")
+        finally:
+            conn.close()
+
     def get_iri_log(self) -> List[Dict]:
         """Get IRI delivery log"""
         conn = sqlite3.connect(self.db_path)
@@ -574,6 +594,56 @@ async def health_check():
     }
 
 # ============================================================================
+# X2 TPKT Socket Server
+# ============================================================================
+
+def start_x2_server(x2_port: int = 4000):
+    """Start X2 TPKT socket server on port 4000"""
+    def handle_x2_connection():
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server_socket.bind(('0.0.0.0', x2_port))
+        server_socket.listen(5)
+        logger.info(f"X2 TPKT Server listening on port {x2_port}")
+
+        while True:
+            try:
+                client_socket, addr = server_socket.accept()
+                logger.info(f"X2 connection from {addr[0]}:{addr[1]}")
+
+                # Receive TPKT packet
+                tpkt_header = client_socket.recv(4)
+                if len(tpkt_header) >= 4:
+                    # Parse TPKT header: version, reserved, length (2 bytes big-endian)
+                    length = struct.unpack('!H', tpkt_header[2:4])[0]
+                    payload_size = length - 4
+
+                    # Receive payload
+                    payload = client_socket.recv(payload_size)
+
+                    try:
+                        event_data = json.loads(payload.decode('utf-8'))
+                        liid = event_data.get('liid')
+                        event_id = event_data.get('event_id')
+                        event_name = event_data.get('event_name')
+
+                        if liid and event_id and event_name:
+                            db.log_iri_event(liid, event_id, event_name)
+                        else:
+                            logger.warning(f"Invalid X2 event format: {payload}")
+                    except json.JSONDecodeError:
+                        logger.error(f"Failed to parse X2 payload: {payload}")
+
+                client_socket.close()
+            except Exception as e:
+                logger.error(f"X2 server error: {e}")
+
+    # Start server in background thread
+    x2_thread = threading.Thread(target=handle_x2_connection, daemon=True)
+    x2_thread.start()
+    logger.info("X2 TPKT server started")
+
+# ============================================================================
 # Main
 # ============================================================================
 
@@ -593,6 +663,9 @@ def main():
     logger.info(f"LEA FTP: {args.ftp_host}:{args.ftp_port}")
     logger.info("Interfaces: HI1 (Warrant), X1 (Tasks), X2 (IRI), X3 (CC)")
     logger.info("="*70)
+
+    # Start X2 TPKT socket server
+    start_x2_server(x2_port=4000)
 
     uvicorn.run(
         app,
