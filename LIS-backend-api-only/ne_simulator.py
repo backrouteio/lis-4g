@@ -162,6 +162,33 @@ class NESimulator:
 
                 await asyncio.sleep(self.config.x1_poll_interval)
 
+    def send_x2_event(self, liid: str, event_id: str, event_name: str):
+        """Send X2 event to LIS via TPKT on port 4000"""
+        try:
+            # Create event JSON
+            event_data = {
+                "event_id": event_id,
+                "liid": liid,
+                "event_name": event_name,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            event_json = json.dumps(event_data).encode('utf-8')
+
+            # TPKT Header: version (1 byte) + reserved (1 byte) + length (2 bytes big-endian)
+            tpkt_header = bytes([3, 0, 0, len(event_json) + 4])
+            tpkt_packet = tpkt_header + event_json
+
+            # Send via socket
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(2)
+            sock.connect((self.config.lis_ip, self.config.x2_port))
+            sock.sendall(tpkt_packet)
+            sock.close()
+
+            logger.info(f"X2 SENT: {event_name} (ID:{event_id}) to LIS {self.config.lis_ip}:{self.config.x2_port}")
+        except Exception as e:
+            logger.error(f"X2 SEND error: {e}")
+
     async def generate_events(self):
         """Auto-generate IRI/CC events based on NE type"""
         iri_event_types = ['CallSetup', 'CallRelease', 'SMS', 'DataConnection', 'LocationUpdate']
@@ -176,6 +203,9 @@ class NESimulator:
                 iri_event_id = f"iri-{uuid.uuid4().hex[:8]}"
                 self.db.log_event(liid, iri_event_id, iri_event)
                 logger.info(f"X2 IRI: {iri_event} for LIID={liid} (NE={self.config.ne_type})")
+
+                # Send X2 event to LIS via TPKT
+                self.send_x2_event(liid, iri_event_id, iri_event)
 
                 # Only SGW and PGW generate X3 CC events
                 if self.config.ne_type.upper() in ['SGW', 'PGW']:
