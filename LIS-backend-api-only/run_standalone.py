@@ -18,6 +18,7 @@ import struct
 import socket
 import uuid
 import threading
+import requests
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 from pathlib import Path
@@ -597,8 +598,8 @@ async def health_check():
 # X2 TPKT Socket Server
 # ============================================================================
 
-def start_x2_server(x2_port: int = 4000):
-    """Start X2 TPKT socket server on port 4000"""
+def start_x2_server(x2_port: int = 4000, lea_address: str = "10.80.20.50", lea_port: int = 8443):
+    """Start X2 TPKT socket server on port 4000 and forward to LEA"""
     def handle_x2_connection():
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -626,9 +627,14 @@ def start_x2_server(x2_port: int = 4000):
                         liid = event_data.get('liid')
                         event_id = event_data.get('event_id')
                         event_name = event_data.get('event_name')
+                        timestamp = event_data.get('timestamp', datetime.utcnow().isoformat())
 
                         if liid and event_id and event_name:
+                            # Log event in LIS database
                             db.log_iri_event(liid, event_id, event_name)
+
+                            # Forward to LEA via HI2 interface
+                            forward_to_lea(liid, event_id, event_name, timestamp, lea_address, lea_port)
                         else:
                             logger.warning(f"Invalid X2 event format: {payload}")
                     except json.JSONDecodeError:
@@ -643,6 +649,71 @@ def start_x2_server(x2_port: int = 4000):
     x2_thread.start()
     logger.info("X2 TPKT server started")
 
+def forward_to_lea(liid: str, event_id: str, event_name: str, timestamp: str, lea_address: str, lea_port: int):
+    """Forward X2 event to LEA via HI2 interface"""
+    try:
+        url = f"http://{lea_address}:{lea_port}/hi2/iri"
+        payload = {
+            "liid": liid,
+            "event_id": event_id,
+            "event_type": event_name,
+            "timestamp": timestamp,
+            "calling_party": None,
+            "called_party": None,
+            "call_direction": None,
+            "imsi": None,
+            "imei": None,
+            "additional_info": {}
+        }
+        response = requests.post(url, json=payload, timeout=2)
+        if response.status_code == 200:
+            logger.info(f"HI2 SENT: {event_name} (ID:{event_id}) to LEA {lea_address}:{lea_port}")
+        else:
+            logger.warning(f"HI2 forward failed: {response.status_code}")
+    except Exception as e:
+        logger.error(f"HI2 forward error: {e}")
+
+# ============================================================================
+# X3 UDP Socket Server
+# ============================================================================
+
+def start_x3_server(x3_port: int = 4001):
+    """Start X3 UDP socket server on port 4001 to receive CC packets"""
+    def handle_x3_packets():
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server_socket.bind(('0.0.0.0', x3_port))
+        logger.info(f"X3 UDP Server listening on port {x3_port}")
+
+        while True:
+            try:
+                data, addr = server_socket.recvfrom(4096)
+                logger.info(f"X3 packet from {addr[0]}:{addr[1]} - Size: {len(data)} bytes")
+
+                try:
+                    # Parse incoming CC packet (JSON format)
+                    cc_data = json.loads(data.decode('utf-8'))
+                    liid = cc_data.get('liid')
+                    cc_event_id = cc_data.get('cc_event_id', f"cc-{uuid.uuid4().hex[:8]}")
+                    packet_size = len(data)
+
+                    if liid:
+                        # Log CC packet in LIS database
+                        db.log_cc_packet(liid, cc_event_id, packet_size)
+                        logger.info(f"X3 RECEIVED: CC packet (ID:{cc_event_id}) for LIID={liid} - Size: {packet_size} bytes")
+                    else:
+                        logger.warning(f"Invalid X3 packet format: {data[:100]}")
+                except json.JSONDecodeError:
+                    # If not JSON, treat as raw CC data
+                    logger.warning(f"X3 packet not JSON format - Size: {len(data)} bytes")
+            except Exception as e:
+                logger.error(f"X3 server error: {e}")
+
+    # Start server in background thread
+    x3_thread = threading.Thread(target=handle_x3_packets, daemon=True)
+    x3_thread.start()
+    logger.info("X3 UDP server started")
+
 # ============================================================================
 # Main
 # ============================================================================
@@ -652,20 +723,27 @@ def main():
     parser.add_argument("--host", default="0.0.0.0", help="Server host")
     parser.add_argument("--port", type=int, default=8001, help="Server port")
     parser.add_argument("--log-level", default="INFO", help="Logging level")
-    parser.add_argument("--ftp-host", default="10.80.20.45", help="LEA FTP host")
-    parser.add_argument("--ftp-port", type=int, default=21, help="LEA FTP port")
+    parser.add_argument("--lea-host", default="10.80.20.50", help="LEA server host")
+    parser.add_argument("--lea-port", type=int, default=8443, help="LEA server port")
+    parser.add_argument("--x2-port", type=int, default=4000, help="X2 TPKT port")
+    parser.add_argument("--x3-port", type=int, default=4001, help="X3 UDP port")
 
     args = parser.parse_args()
 
     logger.info("="*70)
     logger.info("LIS-4G Backend API - Starting")
-    logger.info(f"Listen: {args.host}:{args.port}")
-    logger.info(f"LEA FTP: {args.ftp_host}:{args.ftp_port}")
+    logger.info(f"REST API: {args.host}:{args.port}")
+    logger.info(f"X2 TPKT: port {args.x2_port}")
+    logger.info(f"X3 UDP: port {args.x3_port}")
+    logger.info(f"LEA HI2/HI3: {args.lea_host}:{args.lea_port}")
     logger.info("Interfaces: HI1 (Warrant), X1 (Tasks), X2 (IRI), X3 (CC)")
     logger.info("="*70)
 
-    # Start X2 TPKT socket server
-    start_x2_server(x2_port=4000)
+    # Start X2 TPKT socket server (forwards IRI to LEA via HI2)
+    start_x2_server(x2_port=args.x2_port, lea_address=args.lea_host, lea_port=args.lea_port)
+
+    # Start X3 UDP socket server (receives CC packets)
+    start_x3_server(x3_port=args.x3_port)
 
     uvicorn.run(
         app,
