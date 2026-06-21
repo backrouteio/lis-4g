@@ -1,0 +1,470 @@
+openapi: 3.0.0
+info:
+  title: NE Simulator API
+  description: 4G Network Element Simulator - IRI and CC Delivery
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8002
+    description: Development Server
+  - url: http://{host}:8002
+    description: Custom Host
+    variables:
+      host:
+        default: 10.80.20.62
+        description: NE Simulator IP address
+
+tags:
+  - name: X1 - Task Polling
+    description: Poll LIS for active intercept tasks
+  - name: X2/X3 - Delivery
+    description: X2 IRI and X3 CC delivery status
+  - name: Configuration
+    description: NE simulator configuration and settings
+  - name: Event Injection
+    description: Manually inject IRI/CC events for testing
+
+paths:
+  /x1/poll:
+    get:
+      tags:
+        - X1 - Task Polling
+      summary: Poll LIS for Active Tasks
+      description: NE simulator polls LIS for tasks to intercept (X1 interface)
+      responses:
+        200:
+          description: Active tasks from LIS
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tasks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/X1Task'
+                  poll_interval:
+                    type: integer
+                    example: 5
+                    description: Suggested poll interval in seconds
+
+  /x1/status:
+    get:
+      tags:
+        - X1 - Task Polling
+      summary: Get X1 Polling Status
+      description: Check X1 task polling connection status
+      responses:
+        200:
+          description: X1 polling status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  lis_connection:
+                    type: string
+                    enum: [Connected, Disconnected]
+                  last_poll:
+                    type: string
+                    format: date-time
+                  active_tasks:
+                    type: integer
+                  poll_interval:
+                    type: integer
+
+  /x2/status:
+    get:
+      tags:
+        - X2/X3 - Delivery
+      summary: Get X2 IRI Delivery Status
+      description: Check X2 IRI delivery connection and statistics
+      responses:
+        200:
+          description: X2 delivery status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  port:
+                    type: integer
+                    example: 4000
+                  protocol:
+                    type: string
+                    example: TPKT
+                  encoding:
+                    type: string
+                    example: ASN1-BER
+                  events_sent:
+                    type: integer
+                  last_event_time:
+                    type: string
+                    format: date-time
+
+  /x2/log:
+    get:
+      tags:
+        - X2/X3 - Delivery
+      summary: Get X2 Event Delivery Log
+      description: Retrieve history of X2 IRI events sent
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+        - name: liid
+          in: query
+          schema:
+            type: string
+      responses:
+        200:
+          description: X2 event log
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeliveryEvent'
+
+  /x3/status:
+    get:
+      tags:
+        - X2/X3 - Delivery
+      summary: Get X3 CC Delivery Status
+      description: Check X3 CC delivery connection and statistics
+      responses:
+        200:
+          description: X3 delivery status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  port:
+                    type: integer
+                    example: 4001
+                  protocol:
+                    type: string
+                    example: UDP
+                  encoding:
+                    type: string
+                    example: ULIC
+                  packets_sent:
+                    type: integer
+                  last_packet_time:
+                    type: string
+                    format: date-time
+
+  /x3/log:
+    get:
+      tags:
+        - X2/X3 - Delivery
+      summary: Get X3 CC Delivery Log
+      description: Retrieve history of X3 CC packets sent
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+        - name: liid
+          in: query
+          schema:
+            type: string
+      responses:
+        200:
+          description: X3 packet log
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  packets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeliveryEvent'
+
+  /config:
+    get:
+      tags:
+        - Configuration
+      summary: Get Current Configuration
+      description: Get the current NE simulator configuration
+      responses:
+        200:
+          description: Current configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NEConfiguration'
+
+    put:
+      tags:
+        - Configuration
+      summary: Update Configuration
+      description: Update NE simulator configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NEConfiguration'
+      responses:
+        200:
+          description: Configuration updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: SUCCESS
+                  message:
+                    type: string
+
+  /events/inject:
+    post:
+      tags:
+        - Event Injection
+      summary: Manually Inject IRI Event
+      description: Inject a test IRI event for delivery to LIS
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IRIEvent'
+      responses:
+        200:
+          description: Event injected successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: INJECTED
+                  event_id:
+                    type: string
+
+  /events/cc-inject:
+    post:
+      tags:
+        - Event Injection
+      summary: Manually Inject CC Packet
+      description: Inject a test CC packet for delivery to LIS
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CCPacket'
+      responses:
+        200:
+          description: CC packet injected successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: INJECTED
+                  packet_id:
+                    type: string
+
+  /auto-generation:
+    post:
+      tags:
+        - Event Injection
+      summary: Toggle Auto-Generation of Events
+      description: Enable or disable automatic IRI/CC event generation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                  example: true
+                interval:
+                  type: integer
+                  example: 10
+                  description: Seconds between auto-generated events
+      responses:
+        200:
+          description: Auto-generation setting updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: SUCCESS
+                  auto_generation:
+                    type: boolean
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: NE Simulator Health Status
+      responses:
+        200:
+          description: NE simulator is running
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: OK
+                  ne_type:
+                    type: string
+                    example: MME
+                  x1_polling:
+                    type: string
+                    example: ACTIVE
+                  x2_delivery:
+                    type: string
+                    example: READY
+                  x3_delivery:
+                    type: string
+                    example: READY
+
+components:
+  schemas:
+    X1Task:
+      type: object
+      properties:
+        liid:
+          type: string
+          example: LI-2026-NIA-0042
+        warrant_reference:
+          type: string
+          example: W-2026-98765
+        target_identifier:
+          type: string
+          example: "+1234567890"
+        imsi:
+          type: string
+          example: "310410123456789"
+        delivery_endpoint:
+          $ref: '#/components/schemas/DeliveryEndpoint'
+
+    DeliveryEvent:
+      type: object
+      properties:
+        event_id:
+          type: string
+        liid:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        event_type:
+          type: string
+          enum: [IRI, CC]
+        status:
+          type: string
+          enum: [Sent, Delivered, Failed]
+        details:
+          type: object
+
+    IRIEvent:
+      type: object
+      properties:
+        liid:
+          type: string
+          example: LI-2026-NIA-0042
+        event_name:
+          type: string
+          enum: [CallSetup, CallRelease, SMS, DataConnection, LocationUpdate]
+        timestamp:
+          type: string
+          format: date-time
+        calling_party:
+          type: string
+        called_party:
+          type: string
+        call_direction:
+          type: string
+          enum: [MO, MT]
+        imsi:
+          type: string
+        imei:
+          type: string
+        cell_id:
+          type: string
+        additional_data:
+          type: object
+
+    CCPacket:
+      type: object
+      properties:
+        liid:
+          type: string
+          example: LI-2026-NIA-0042
+        packet_data:
+          type: string
+          format: binary
+          description: Raw call content data
+        timestamp:
+          type: string
+          format: date-time
+        direction:
+          type: string
+          enum: [Uplink, Downlink]
+
+    DeliveryEndpoint:
+      type: object
+      properties:
+        address:
+          type: string
+          example: 10.80.20.85
+        ftp_port:
+          type: integer
+          example: 21
+        protocol:
+          type: string
+          example: FTP
+
+    NEConfiguration:
+      type: object
+      properties:
+        ne_type:
+          type: string
+          enum: [MME, SGW, PGW]
+          example: MME
+        lis_ip:
+          type: string
+          example: 10.80.20.85
+        lis_port:
+          type: integer
+          example: 8001
+        x1_poll_interval:
+          type: integer
+          example: 5
+        x2_port:
+          type: integer
+          example: 4000
+        x3_port:
+          type: integer
+          example: 4001
+        auto_generation_enabled:
+          type: boolean
+          example: true
+        auto_generation_interval:
+          type: integer
+          example: 10

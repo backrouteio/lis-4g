@@ -1,0 +1,65 @@
+[
+  {
+    "event_id": "evt-001",
+    "liid": "LI-2026-NIA-0042",
+    "event_type": "IRI",
+    "event_name": "Call Setup",
+    "timestamp": "2026-06-21T10:30:15Z",
+    "calling_party": "+1234567890",
+    "called_party": "+9876543210",
+    "call_direction": "MO",
+    "cell_id": "cell-123-456",
+    "imei": "359072344138197",
+    "imsi": "310410123456789",
+    "description": "Mobile Originated Call"
+  },
+  {
+    "event_id": "evt-002",
+    "liid": "LI-2026-NIA-0042",
+    "event_type": "IRI",
+    "event_name": "Call Release",
+    "timestamp": "2026-06-21T10:35:45Z",
+    "calling_party": "+1234567890",
+    "called_party": "+9876543210",
+    "call_direction": "MO",
+    "call_duration": 330,
+    "release_cause": "Normal Release",
+    "description": "Call ended normally"
+  },
+  {
+    "event_id": "evt-003",
+    "liid": "LI-2024-IB-0001",
+    "event_type": "IRI",
+    "event_name": "SMS Delivery",
+    "timestamp": "2026-06-21T10:40:20Z",
+    "calling_party": "+1234567890",
+    "called_party": "+9876543210",
+    "sms_status": "Delivered",
+    "message_length": 160,
+    "description": "SMS message delivered successfully"
+  },
+  {
+    "event_id": "evt-004",
+    "liid": "LI-2026-NIA-0042",
+    "event_type": "IRI",
+    "event_name": "Data Connection",
+    "timestamp": "2026-06-21T10:45:00Z",
+    "imei": "359072344138197",
+    "imsi": "310410123456789",
+    "apn": "internet",
+    "data_volume": 1024000,
+    "description": "Data connection established"
+  },
+  {
+    "event_id": "evt-005",
+    "liid": "LI-2024-IB-0001",
+    "event_type": "IRI",
+    "event_name": "Location Update",
+    "timestamp": "2026-06-21T10:50:10Z",
+    "imsi": "310410123456789",
+    "cell_id": "cell-789-012",
+    "lac": "lac-567",
+    "location_area": "Mumbai",
+    "description": "Mobile device registered in new location"
+  }
+]

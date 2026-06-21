@@ -1,0 +1,470 @@
+openapi: 3.0.0
+info:
+  title: LIS-4G Backend API
+  description: 4G LTE Lawful Interception System - Warrant Management and Provisioning
+  version: 1.0.0
+  contact:
+    name: LIS Support
+    url: https://github.com/backrouteio/lis-4g
+
+servers:
+  - url: http://localhost:8001
+    description: Development Server
+  - url: http://{host}:8001
+    description: Custom Host
+    variables:
+      host:
+        default: 10.80.20.85
+        description: LIS Server IP address
+
+tags:
+  - name: HI1 - Warrant Management
+    description: Warrant activation, update, deactivation, and status queries
+  - name: X1 - Task Provisioning
+    description: Network element polling for active intercept tasks
+  - name: X2/X3 - Delivery Status
+    description: IRI and CC delivery status and logs
+
+paths:
+  /hi1/warrants/activate:
+    post:
+      tags:
+        - HI1 - Warrant Management
+      summary: Create and Activate a New Warrant
+      description: LEA sends this request to activate a new intercept warrant (CREATE action in HI1)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HI1WarrantCreateRequest'
+      responses:
+        201:
+          description: Warrant successfully activated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HI1WarrantResponse'
+        400:
+          description: Invalid warrant format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /hi1/warrants/update:
+    put:
+      tags:
+        - HI1 - Warrant Management
+      summary: Update Existing Warrant
+      description: LEA modifies warrant details like end date or delivery endpoint (UPDATE action in HI1)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HI1WarrantUpdateRequest'
+      responses:
+        200:
+          description: Warrant successfully updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HI1WarrantResponse'
+        404:
+          description: Warrant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /hi1/warrants/delete:
+    delete:
+      tags:
+        - HI1 - Warrant Management
+      summary: Deactivate Warrant (DELETE Action)
+      description: LEA terminates warrant, stops intercept (DELETE action in HI1)
+      parameters:
+        - name: liid
+          in: query
+          required: true
+          schema:
+            type: string
+            example: LI-2026-NIA-0042
+          description: Lawful Interception Identifier
+      responses:
+        200:
+          description: Warrant successfully deactivated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: SUCCESS
+                  message:
+                    type: string
+                    example: Warrant LI-2026-NIA-0042 deactivated
+        404:
+          description: Warrant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /hi1/warrants/list:
+    get:
+      tags:
+        - HI1 - Warrant Management
+      summary: List All Warrants
+      description: Query all warrants (active and inactive) - LIST action in HI1
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [Active, Inactive, All]
+            default: All
+          description: Filter by warrant status
+      responses:
+        200:
+          description: List of warrants
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  warrants:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/HI1Warrant'
+                  count:
+                    type: integer
+                    example: 3
+
+  /x1/tasks:
+    get:
+      tags:
+        - X1 - Task Provisioning
+      summary: Get Active Intercept Tasks
+      description: Network element polls for active tasks via HTTP (X1 interface)
+      parameters:
+        - name: ne
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [mme, sgw, pgw]
+          description: Network element type
+      responses:
+        200:
+          description: List of active tasks for the NE
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tasks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/X1Task'
+
+  /x2/iri/log:
+    get:
+      tags:
+        - X2/X3 - Delivery Status
+      summary: Get IRI Delivery Log
+      description: Retrieve X2 IRI event delivery status and history
+      responses:
+        200:
+          description: IRI delivery log
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeliveryEvent'
+
+  /x2/iri/log/clear:
+    delete:
+      tags:
+        - X2/X3 - Delivery Status
+      summary: Clear IRI Delivery Log
+      description: Clear all recorded IRI events from X2 log
+      responses:
+        200:
+          description: Log cleared
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: SUCCESS
+                  cleared_count:
+                    type: integer
+
+  /x3/cc/log:
+    get:
+      tags:
+        - X2/X3 - Delivery Status
+      summary: Get CC Delivery Log
+      description: Retrieve X3 CC packet delivery status and history
+      responses:
+        200:
+          description: CC delivery log
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeliveryEvent'
+
+  /x3/cc/log/clear:
+    delete:
+      tags:
+        - X2/X3 - Delivery Status
+      summary: Clear CC Delivery Log
+      description: Clear all recorded CC events from X3 log
+      responses:
+        200:
+          description: Log cleared
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: SUCCESS
+                  cleared_count:
+                    type: integer
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Server Health Status
+      responses:
+        200:
+          description: Server is running
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: OK
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /docs:
+    get:
+      tags:
+        - Documentation
+      summary: Interactive API Documentation
+      description: Swagger UI for testing endpoints
+
+components:
+  schemas:
+    HI1WarrantCreateRequest:
+      type: object
+      required:
+        - warrant_reference
+        - target_identifier_value
+        - target_identifier_type
+        - hi1_parameters
+      properties:
+        liid:
+          type: string
+          example: LI-2026-NIA-0042
+          description: Lawful Interception Identifier
+        warrant_reference:
+          type: string
+          example: W-2026-98765
+          description: Legal warrant number
+        warrant_status:
+          type: string
+          enum: [Active, Inactive]
+          example: Active
+        warrant_start_date:
+          type: string
+          format: date-time
+          example: "2026-06-21T00:00:00Z"
+        warrant_end_date:
+          type: string
+          format: date-time
+          example: "2026-12-21T23:59:59Z"
+        target_identifier_value:
+          type: string
+          example: "+1234567890"
+          description: Phone number, IMSI, or email
+        target_identifier_type:
+          type: string
+          enum: [MSISDN, IMSI, IMEI, Email]
+          example: MSISDN
+        delivery_endpoint:
+          $ref: '#/components/schemas/DeliveryEndpoint'
+        hi1_parameters:
+          $ref: '#/components/schemas/HI1Parameters'
+
+    HI1WarrantUpdateRequest:
+      type: object
+      required:
+        - liid
+        - hi1_parameters
+      properties:
+        liid:
+          type: string
+          example: LI-2026-NIA-0042
+        warrant_reference:
+          type: string
+          example: W-2026-98765
+        warrant_end_date:
+          type: string
+          format: date-time
+          example: "2027-06-21T23:59:59Z"
+        delivery_endpoint:
+          $ref: '#/components/schemas/DeliveryEndpoint'
+        hi1_parameters:
+          $ref: '#/components/schemas/HI1Parameters'
+
+    HI1Warrant:
+      type: object
+      properties:
+        liid:
+          type: string
+        warrant_reference:
+          type: string
+        warrant_status:
+          type: string
+        warrant_start_date:
+          type: string
+          format: date-time
+        warrant_end_date:
+          type: string
+          format: date-time
+        target_identifier_value:
+          type: string
+        target_identifier_type:
+          type: string
+        delivery_endpoint:
+          $ref: '#/components/schemas/DeliveryEndpoint'
+        hi1_parameters:
+          $ref: '#/components/schemas/HI1Parameters'
+
+    HI1Parameters:
+      type: object
+      required:
+        - sender_identifier
+        - receiver_identifier
+      properties:
+        sender_identifier:
+          type: string
+          example: LEA-MUMBAI-001
+          description: Endpoint ID of LEA sending the warrant
+        receiver_identifier:
+          type: string
+          example: JIONET-CENTRAL
+          description: Endpoint ID of CSP/Network receiving warrant
+        transaction_id:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440001
+          description: Unique UUID for this request
+        action_identifier:
+          type: integer
+          example: 0
+          description: Sequential number for multiple actions (0, 1, 2...)
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-06-21T10:00:00Z"
+        object_identifier:
+          type: string
+          example: auth-obj-001
+          description: Unique ID for this warrant object
+
+    DeliveryEndpoint:
+      type: object
+      properties:
+        address:
+          type: string
+          example: 10.80.20.45
+          description: LEA FTP server IP address
+        port:
+          type: integer
+          example: 21
+          description: FTP port
+        protocol:
+          type: string
+          example: FTP
+          description: Delivery protocol
+
+    X1Task:
+      type: object
+      properties:
+        liid:
+          type: string
+          example: LI-2026-NIA-0042
+        warrant_reference:
+          type: string
+        target_identifier:
+          type: string
+        delivery_endpoint:
+          $ref: '#/components/schemas/DeliveryEndpoint'
+
+    DeliveryEvent:
+      type: object
+      properties:
+        event_id:
+          type: string
+        liid:
+          type: string
+        event_type:
+          type: string
+          enum: [IRI, CC]
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [Pending, Delivered, Failed]
+        details:
+          type: object
+
+    HI1WarrantResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: SUCCESS
+        liid:
+          type: string
+        message:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ERROR
+        error_code:
+          type: integer
+        error_description:
+          type: string
+        timestamp:
+          type: string
+          format: date-time

@@ -1,0 +1,48 @@
+[
+  {
+    "target_id": "target-001",
+    "identifier_type": "MSISDN",
+    "identifier_value": "+1234567890",
+    "description": "Test Mobile Number 1",
+    "imei": "359072344138197",
+    "imsi": "310410123456789"
+  },
+  {
+    "target_id": "target-002",
+    "identifier_type": "MSISDN",
+    "identifier_value": "+9876543210",
+    "description": "Test Mobile Number 2",
+    "imei": "359072344138198",
+    "imsi": "310410123456790"
+  },
+  {
+    "target_id": "target-003",
+    "identifier_type": "IMSI",
+    "identifier_value": "310410123456789",
+    "description": "Test IMSI",
+    "msisdn": "+1234567890",
+    "imei": "359072344138197"
+  },
+  {
+    "target_id": "target-004",
+    "identifier_type": "IMEI",
+    "identifier_value": "359072344138197",
+    "description": "Test IMEI",
+    "msisdn": "+1234567890",
+    "imsi": "310410123456789"
+  },
+  {
+    "target_id": "target-005",
+    "identifier_type": "Email",
+    "identifier_value": "user@example.com",
+    "description": "Test Email Address"
+  },
+  {
+    "target_id": "target-006",
+    "identifier_type": "MSISDN",
+    "identifier_value": "+5555555555",
+    "description": "Test Mobile Number 3",
+    "imei": "359072344138199",
+    "imsi": "310410123456791"
+  }
+]

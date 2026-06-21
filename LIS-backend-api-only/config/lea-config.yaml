@@ -1,0 +1,57 @@
+# LEA Agent Configuration
+
+server:
+  host: 0.0.0.0
+  api_port: 8443
+  debug: false
+  log_level: INFO
+
+# HI2 Interface - IRI Delivery Receiver
+hi2:
+  enabled: true
+  port: 8443
+  protocol: HTTPS
+  description: "HTTP/HTTPS for IRI event reception from LIS"
+
+# HI3 Interface - CC Delivery Receiver
+hi3:
+  enabled: true
+  protocol: FTP
+  description: "FTP server for call content reception from LIS"
+
+# FTP Server Configuration
+ftp:
+  enabled: true
+  host: 0.0.0.0
+  port: 21
+  username: lea
+  password: lea
+  passive_ports: "6000-6100"
+  home_directory: ./cc_received
+  max_connections: 50
+  idle_timeout: 300
+  description: "Plaintext FTP - tcpdump capturable for testing"
+
+# Database
+database:
+  type: sqlite
+  path: ./lea_agent.db
+  backup: true
+  backup_interval: 3600
+
+# Logging
+logging:
+  file: ./logs/lea-agent.log
+  max_size: 10485760  # 10MB
+  backup_count: 5
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# API Documentation
+swagger:
+  enabled: true
+  title: "LEA-4G Agent API"
+  version: "1.0.0"
+  description: "LEA Agent - Backend Only"
+  docs_url: "/docs"
+  redoc_url: "/redoc"
+  openapi_url: "/openapi.json"

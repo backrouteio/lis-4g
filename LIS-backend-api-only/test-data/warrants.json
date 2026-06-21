@@ -1,0 +1,68 @@
+[
+  {
+    "liid": "LI-2026-NIA-0042",
+    "warrant_reference": "W-2026-98765",
+    "warrant_status": "Active",
+    "warrant_start_date": "2026-06-21T00:00:00Z",
+    "warrant_end_date": "2026-12-21T23:59:59Z",
+    "target_identifier_value": "+1234567890",
+    "target_identifier_type": "MSISDN",
+    "delivery_endpoint": {
+      "address": "10.80.20.45",
+      "port": 21,
+      "protocol": "FTP"
+    },
+    "hi1_parameters": {
+      "sender_identifier": "LEA-MUMBAI-001",
+      "receiver_identifier": "JIONET-CENTRAL",
+      "transaction_id": "550e8400-e29b-41d4-a716-446655440001",
+      "action_identifier": 0,
+      "timestamp": "2026-06-21T10:00:00Z",
+      "object_identifier": "auth-obj-001"
+    }
+  },
+  {
+    "liid": "LI-2024-IB-0001",
+    "warrant_reference": "W-2024-54321",
+    "warrant_status": "Active",
+    "warrant_start_date": "2024-01-15T00:00:00Z",
+    "warrant_end_date": "2027-01-15T23:59:59Z",
+    "target_identifier_value": "310410123456789",
+    "target_identifier_type": "IMSI",
+    "delivery_endpoint": {
+      "address": "10.80.20.45",
+      "port": 21,
+      "protocol": "FTP"
+    },
+    "hi1_parameters": {
+      "sender_identifier": "LEA-DELHI-002",
+      "receiver_identifier": "VODAFONE-MAIN",
+      "transaction_id": "550e8400-e29b-41d4-a716-446655440002",
+      "action_identifier": 0,
+      "timestamp": "2026-06-21T10:15:00Z",
+      "object_identifier": "auth-obj-002"
+    }
+  },
+  {
+    "liid": "LI-2026-NIA-0043",
+    "warrant_reference": "W-2026-11111",
+    "warrant_status": "Inactive",
+    "warrant_start_date": "2026-05-01T00:00:00Z",
+    "warrant_end_date": "2026-06-20T23:59:59Z",
+    "target_identifier_value": "user@example.com",
+    "target_identifier_type": "Email",
+    "delivery_endpoint": {
+      "address": "10.80.20.45",
+      "port": 21,
+      "protocol": "FTP"
+    },
+    "hi1_parameters": {
+      "sender_identifier": "LEA-BANGALORE-003",
+      "receiver_identifier": "AIRTEL-SOUTH",
+      "transaction_id": "550e8400-e29b-41d4-a716-446655440003",
+      "action_identifier": 0,
+      "timestamp": "2026-06-21T10:30:00Z",
+      "object_identifier": "auth-obj-003"
+    }
+  }
+]

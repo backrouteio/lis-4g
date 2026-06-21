@@ -1,0 +1,295 @@
+openapi: 3.0.0
+info:
+  title: LEA-4G Agent API
+  description: Law Enforcement Agency Agent - FTP Server and CC Reception
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8443
+    description: Development Server
+  - url: http://{host}:8443
+    description: Custom Host
+    variables:
+      host:
+        default: 10.80.20.45
+        description: LEA Server IP address
+
+tags:
+  - name: HI2 - IRI Reception
+    description: Intercept Related Information reception from LIS
+  - name: HI3 - CC Reception
+    description: Call Content reception via FTP
+  - name: FTP Server
+    description: FTP server status and management
+  - name: CC Files
+    description: Received call content files management
+
+paths:
+  /hi2/iri:
+    post:
+      tags:
+        - HI2 - IRI Reception
+      summary: Receive IRI Event
+      description: LIS sends IRI events to LEA via HTTP POST (HI2 interface)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IRIEvent'
+      responses:
+        200:
+          description: IRI event accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: RECEIVED
+                  event_id:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /hi3/cc/status:
+    get:
+      tags:
+        - HI3 - CC Reception
+      summary: Get CC Delivery Status
+      description: Check status of FTP CC file deliveries
+      parameters:
+        - name: liid
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by LIID
+      responses:
+        200:
+          description: CC delivery status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pending_files:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CCFile'
+                  delivered_files:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CCFile'
+
+  /ftp/server/status:
+    get:
+      tags:
+        - FTP Server
+      summary: FTP Server Status
+      description: Check if FTP server is running and listening
+      responses:
+        200:
+          description: FTP server is running
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: RUNNING
+                  host:
+                    type: string
+                    example: 0.0.0.0
+                  port:
+                    type: integer
+                    example: 21
+                  username:
+                    type: string
+                    example: lea
+                  connections:
+                    type: integer
+                    example: 0
+
+  /cc/files/list:
+    get:
+      tags:
+        - CC Files
+      summary: List Received CC Files
+      description: List all call content files received via FTP
+      parameters:
+        - name: liid
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by LIID
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+      responses:
+        200:
+          description: List of CC files
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CCFile'
+                  total_count:
+                    type: integer
+                  total_size:
+                    type: integer
+                    description: Total size in bytes
+
+  /cc/files/{file_id}:
+    get:
+      tags:
+        - CC Files
+      summary: Get CC File Details
+      description: Get metadata and details of a specific CC file
+      parameters:
+        - name: file_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: CC file details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CCFile'
+        404:
+          description: File not found
+
+  /cc/files/{file_id}/download:
+    get:
+      tags:
+        - CC Files
+      summary: Download CC File
+      description: Download the actual call content file
+      parameters:
+        - name: file_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: CC file content
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        404:
+          description: File not found
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: LEA Agent Health Status
+      responses:
+        200:
+          description: LEA agent is running
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: OK
+                  ftp_server:
+                    type: string
+                    example: RUNNING
+                  api_port:
+                    type: integer
+                    example: 8443
+                  ftp_port:
+                    type: integer
+                    example: 21
+
+components:
+  schemas:
+    IRIEvent:
+      type: object
+      properties:
+        liid:
+          type: string
+          example: LI-2026-NIA-0042
+        event_id:
+          type: string
+          example: evt-001
+        event_type:
+          type: string
+          enum: [CallSetup, CallRelease, SMS, DataConnection, LocationUpdate]
+        timestamp:
+          type: string
+          format: date-time
+        calling_party:
+          type: string
+          example: "+1234567890"
+        called_party:
+          type: string
+          example: "+9876543210"
+        call_direction:
+          type: string
+          enum: [MO, MT]
+          description: "MO = Mobile Originated, MT = Mobile Terminated"
+        imsi:
+          type: string
+          example: "310410123456789"
+        imei:
+          type: string
+          example: "359072344138197"
+        cell_id:
+          type: string
+          example: "cell-123-456"
+        additional_info:
+          type: object
+          description: Event-specific additional information
+
+    CCFile:
+      type: object
+      properties:
+        file_id:
+          type: string
+          example: cc-001
+        liid:
+          type: string
+          example: LI-2026-NIA-0042
+        filename:
+          type: string
+          example: "LI-2026-NIA-0042_cc_2026-06-21_10-30-15.cc"
+        file_size:
+          type: integer
+          example: 102400
+          description: Size in bytes
+        received_timestamp:
+          type: string
+          format: date-time
+          example: "2026-06-21T10:30:20Z"
+        status:
+          type: string
+          enum: [Pending, Received, Archived]
+          example: Received
+        delivery_method:
+          type: string
+          enum: [FTP, HTTP]
+          example: FTP
+        checksum:
+          type: string
+          description: SHA256 checksum for verification

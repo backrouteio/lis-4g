@@ -1,0 +1,554 @@
+{
+  "info": {
+    "name": "LIS-4G Backend API",
+    "description": "4G LTE Lawful Interception System - HI1/X1/X2/X3 Testing",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "HI1 - Warrant Management",
+      "item": [
+        {
+          "name": "HI1 - CREATE Warrant (Activation)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"liid\": \"LI-2026-NIA-0042\",\n  \"warrant_reference\": \"W-2026-98765\",\n  \"warrant_status\": \"Active\",\n  \"warrant_start_date\": \"2026-06-21T00:00:00Z\",\n  \"warrant_end_date\": \"2026-12-21T23:59:59Z\",\n  \"target_identifier_value\": \"+1234567890\",\n  \"target_identifier_type\": \"MSISDN\",\n  \"delivery_endpoint\": {\n    \"address\": \"10.80.20.45\",\n    \"port\": 21,\n    \"protocol\": \"FTP\"\n  },\n  \"hi1_parameters\": {\n    \"sender_identifier\": \"LEA-MUMBAI-001\",\n    \"receiver_identifier\": \"JIONET-CENTRAL\",\n    \"transaction_id\": \"550e8400-e29b-41d4-a716-446655440001\",\n    \"action_identifier\": 0,\n    \"timestamp\": \"2026-06-21T10:00:00Z\",\n    \"object_identifier\": \"auth-obj-001\"\n  }\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8001/hi1/warrants/activate",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8001",
+              "path": ["hi1", "warrants", "activate"]
+            },
+            "description": "CREATE action in HI1 - Activates new warrant with full HI1 parameters including LIID"
+          },
+          "response": []
+        },
+        {
+          "name": "HI1 - CREATE Warrant (IMSI)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"liid\": \"LI-2024-IB-0001\",\n  \"warrant_reference\": \"W-2024-54321\",\n  \"warrant_status\": \"Active\",\n  \"warrant_start_date\": \"2024-01-15T00:00:00Z\",\n  \"warrant_end_date\": \"2027-01-15T23:59:59Z\",\n  \"target_identifier_value\": \"310410123456789\",\n  \"target_identifier_type\": \"IMSI\",\n  \"delivery_endpoint\": {\n    \"address\": \"10.80.20.45\",\n    \"port\": 21,\n    \"protocol\": \"FTP\"\n  },\n  \"hi1_parameters\": {\n    \"sender_identifier\": \"LEA-DELHI-002\",\n    \"receiver_identifier\": \"VODAFONE-MAIN\",\n    \"transaction_id\": \"550e8400-e29b-41d4-a716-446655440002\",\n    \"action_identifier\": 0,\n    \"timestamp\": \"2026-06-21T10:15:00Z\",\n    \"object_identifier\": \"auth-obj-002\"\n  }\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8001/hi1/warrants/activate",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8001",
+              "path": ["hi1", "warrants", "activate"]
+            },
+            "description": "CREATE IMSI warrant"
+          },
+          "response": []
+        },
+        {
+          "name": "HI1 - UPDATE Warrant (Extend Duration)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"liid\": \"LI-2026-NIA-0042\",\n  \"warrant_reference\": \"W-2026-98765\",\n  \"warrant_end_date\": \"2027-06-21T23:59:59Z\",\n  \"delivery_endpoint\": {\n    \"address\": \"10.80.20.45\",\n    \"port\": 21,\n    \"protocol\": \"FTP\"\n  },\n  \"hi1_parameters\": {\n    \"sender_identifier\": \"LEA-MUMBAI-001\",\n    \"receiver_identifier\": \"JIONET-CENTRAL\",\n    \"transaction_id\": \"550e8400-e29b-41d4-a716-446655440010\",\n    \"action_identifier\": 0,\n    \"timestamp\": \"2026-06-21T10:10:00Z\",\n    \"object_identifier\": \"auth-obj-001\"\n  }\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8001/hi1/warrants/update",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8001",
+              "path": ["hi1", "warrants", "update"]
+            },
+            "description": "UPDATE action in HI1 - Modify existing warrant"
+          },
+          "response": []
+        },
+        {
+          "name": "HI1 - LIST Warrants (All)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8001/hi1/warrants/list?status=All",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8001",
+              "path": ["hi1", "warrants", "list"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "All"
+                }
+              ]
+            },
+            "description": "LIST action in HI1 - Get all warrants"
+          },
+          "response": []
+        },
+        {
+          "name": "HI1 - LIST Warrants (Active Only)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8001/hi1/warrants/list?status=Active",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8001",
+              "path": ["hi1", "warrants", "list"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "Active"
+                }
+              ]
+            },
+            "description": "LIST action - Get active warrants only"
+          },
+          "response": []
+        },
+        {
+          "name": "HI1 - DELETE Warrant (Deactivate)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "http://localhost:8001/hi1/warrants/delete?liid=LI-2026-NIA-0042",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8001",
+              "path": ["hi1", "warrants", "delete"],
+              "query": [
+                {
+                  "key": "liid",
+                  "value": "LI-2026-NIA-0042"
+                }
+              ]
+            },
+            "description": "DELETE action in HI1 - Deactivate warrant"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "X1 - Task Provisioning",
+      "item": [
+        {
+          "name": "X1 - Poll Tasks for MME",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8001/x1/tasks?ne=mme",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8001",
+              "path": ["x1", "tasks"],
+              "query": [
+                {
+                  "key": "ne",
+                  "value": "mme"
+                }
+              ]
+            },
+            "description": "X1 interface - NE polls LIS for active intercept tasks"
+          },
+          "response": []
+        },
+        {
+          "name": "X1 - Poll Tasks for SGW",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8001/x1/tasks?ne=sgw",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8001",
+              "path": ["x1", "tasks"],
+              "query": [
+                {
+                  "key": "ne",
+                  "value": "sgw"
+                }
+              ]
+            },
+            "description": "X1 interface - SGW tasks"
+          },
+          "response": []
+        },
+        {
+          "name": "X1 - Poll Tasks for PGW",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8001/x1/tasks?ne=pgw",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8001",
+              "path": ["x1", "tasks"],
+              "query": [
+                {
+                  "key": "ne",
+                  "value": "pgw"
+                }
+              ]
+            },
+            "description": "X1 interface - PGW tasks"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "X2/X3 - Delivery Status",
+      "item": [
+        {
+          "name": "X2 - Get IRI Delivery Log",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8001/x2/iri/log",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8001",
+              "path": ["x2", "iri", "log"]
+            },
+            "description": "Get X2 IRI event delivery status"
+          },
+          "response": []
+        },
+        {
+          "name": "X2 - Clear IRI Log",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8001/x2/iri/log/clear",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8001",
+              "path": ["x2", "iri", "log", "clear"]
+            },
+            "description": "Clear X2 IRI event log"
+          },
+          "response": []
+        },
+        {
+          "name": "X3 - Get CC Delivery Log",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8001/x3/cc/log",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8001",
+              "path": ["x3", "cc", "log"]
+            },
+            "description": "Get X3 CC packet delivery status"
+          },
+          "response": []
+        },
+        {
+          "name": "X3 - Clear CC Log",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8001/x3/cc/log/clear",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8001",
+              "path": ["x3", "cc", "log", "clear"]
+            },
+            "description": "Clear X3 CC event log"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "LEA Agent API",
+      "item": [
+        {
+          "name": "LEA - Get FTP Server Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8443/ftp/server/status",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8443",
+              "path": ["ftp", "server", "status"]
+            },
+            "description": "Check if LEA FTP server is running"
+          },
+          "response": []
+        },
+        {
+          "name": "LEA - List Received CC Files",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8443/cc/files/list",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8443",
+              "path": ["cc", "files", "list"]
+            },
+            "description": "List all call content files received via FTP"
+          },
+          "response": []
+        },
+        {
+          "name": "LEA - Get HI3 CC Delivery Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8443/hi3/cc/status",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8443",
+              "path": ["hi3", "cc", "status"]
+            },
+            "description": "Get status of CC file deliveries to LEA"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "NE Simulator API",
+      "item": [
+        {
+          "name": "NE - Get Configuration",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8002/config",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8002",
+              "path": ["config"]
+            },
+            "description": "Get NE simulator current configuration"
+          },
+          "response": []
+        },
+        {
+          "name": "NE - Update Configuration",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ne_type\": \"MME\",\n  \"lis_ip\": \"10.80.20.85\",\n  \"lis_port\": 8001,\n  \"x1_poll_interval\": 5,\n  \"x2_port\": 4000,\n  \"x3_port\": 4001,\n  \"auto_generation_enabled\": true,\n  \"auto_generation_interval\": 10\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8002/config",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8002",
+              "path": ["config"]
+            },
+            "description": "Update NE simulator configuration"
+          },
+          "response": []
+        },
+        {
+          "name": "NE - Get X1 Polling Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8002/x1/status",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8002",
+              "path": ["x1", "status"]
+            },
+            "description": "Check X1 task polling connection status"
+          },
+          "response": []
+        },
+        {
+          "name": "NE - Get X2 Delivery Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8002/x2/status",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8002",
+              "path": ["x2", "status"]
+            },
+            "description": "Get X2 IRI delivery status"
+          },
+          "response": []
+        },
+        {
+          "name": "NE - Get X3 Delivery Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8002/x3/status",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8002",
+              "path": ["x3", "status"]
+            },
+            "description": "Get X3 CC delivery status"
+          },
+          "response": []
+        },
+        {
+          "name": "NE - Inject IRI Event (Manual)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"liid\": \"LI-2026-NIA-0042\",\n  \"event_name\": \"CallSetup\",\n  \"timestamp\": \"2026-06-21T10:30:15Z\",\n  \"calling_party\": \"+1234567890\",\n  \"called_party\": \"+9876543210\",\n  \"call_direction\": \"MO\",\n  \"imsi\": \"310410123456789\",\n  \"imei\": \"359072344138197\",\n  \"cell_id\": \"cell-123-456\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8002/events/inject",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8002",
+              "path": ["events", "inject"]
+            },
+            "description": "Manually inject an IRI event for testing"
+          },
+          "response": []
+        },
+        {
+          "name": "NE - Toggle Auto-Generation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true,\n  \"interval\": 10\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8002/auto-generation",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8002",
+              "path": ["auto-generation"]
+            },
+            "description": "Enable/disable automatic IRI/CC event generation"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Health & Documentation",
+      "item": [
+        {
+          "name": "LIS - Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8001/health",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8001",
+              "path": ["health"]
+            },
+            "description": "Check if LIS server is running"
+          },
+          "response": []
+        },
+        {
+          "name": "LEA - Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8443/health",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8443",
+              "path": ["health"]
+            },
+            "description": "Check if LEA agent is running"
+          },
+          "response": []
+        },
+        {
+          "name": "NE - Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8002/health",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8002",
+              "path": ["health"]
+            },
+            "description": "Check if NE simulator is running"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

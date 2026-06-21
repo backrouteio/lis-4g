@@ -1,0 +1,70 @@
+# Network Element Simulator Configuration
+
+server:
+  api_port: 8002
+  debug: false
+  log_level: INFO
+
+# Network Element Type
+network_element:
+  type: MME              # Options: MME, SGW, PGW
+  node_id: "MME-001"
+
+# X1 Interface - Task Provisioning (Polling)
+x1:
+  enabled: true
+  lis_ip: 10.80.20.85
+  lis_port: 8001
+  poll_interval: 5       # seconds
+  protocol: HTTP
+  description: "HTTP polling to LIS for active intercept tasks"
+
+# X2 Interface - IRI Delivery
+x2:
+  enabled: true
+  port: 4000
+  protocol: TPKT
+  encoding: ASN1-BER
+  description: "TPKT/RFC1006 TCP for IRI event delivery to LIS"
+
+# X3 Interface - CC Delivery
+x3:
+  enabled: true
+  port: 4001
+  protocol: UDP
+  encoding: ULIC
+  description: "UDP for call content delivery to LIS"
+
+# Event Simulation
+simulation:
+  auto_generate: true
+  event_interval: 10         # seconds between auto-generated events
+  event_types:
+    - IRI                    # IRI events (call setup, release, etc)
+    - CC                     # Call content (voice packets)
+  liid_patterns:
+    - "LI-2026-NIA-*"
+    - "LI-2024-IB-*"
+
+# Database
+database:
+  type: sqlite
+  path: ./ne_simulator.db
+  backup: true
+
+# Logging
+logging:
+  file: ./logs/ne-simulator.log
+  max_size: 10485760  # 10MB
+  backup_count: 5
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# API Documentation
+swagger:
+  enabled: true
+  title: "NE Simulator API"
+  version: "1.0.0"
+  description: "4G Network Element Simulator - Backend Only"
+  docs_url: "/docs"
+  redoc_url: "/redoc"
+  openapi_url: "/openapi.json"
