@@ -131,6 +131,38 @@ class LEADatabase:
         conn.close()
         logger.info(f"FTP file logged: LIID={liid} File={filename}")
 
+    def get_iri_events(self, liid: str = None, limit: int = 100) -> List[Dict]:
+        """Get received IRI events"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        if liid:
+            cursor.execute(
+                'SELECT * FROM iri_events WHERE liid = ? ORDER BY created_at DESC LIMIT ?',
+                (liid, limit)
+            )
+        else:
+            cursor.execute('SELECT * FROM iri_events ORDER BY created_at DESC LIMIT ?', (limit,))
+
+        rows = cursor.fetchall()
+        conn.close()
+
+        events = []
+        for row in rows:
+            events.append({
+                'event_id': row[2],
+                'liid': row[1],
+                'event_type': row[3],
+                'timestamp': row[4],
+                'calling_party': row[5],
+                'called_party': row[6],
+                'imsi': row[7],
+                'imei': row[8],
+                'received_at': row[9]
+            })
+
+        return events
+
     def get_cc_files(self, liid: str = None, limit: int = 100) -> List[Dict]:
         """Get CC files"""
         conn = sqlite3.connect(self.db_path)
@@ -188,6 +220,16 @@ async def receive_iri(event: IRIEvent):
         "status": "RECEIVED",
         "event_id": event.event_id,
         "timestamp": datetime.utcnow().isoformat()
+    }
+
+@app.get("/hi2/received", tags=["HI2 - IRI Reception"])
+async def get_received_iris(liid: str = None, limit: int = 100):
+    """Get all received IRI events from LIS"""
+    events = db.get_iri_events(liid, limit)
+    return {
+        "status": "SUCCESS",
+        "events": events,
+        "count": len(events)
     }
 
 # ============================================================================
