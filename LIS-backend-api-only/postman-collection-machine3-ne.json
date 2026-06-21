@@ -1,0 +1,313 @@
+{
+  "info": {
+    "name": "LIS-4G - Machine 3 (NE Simulator at 10.80.10.168)",
+    "description": "Postman collection for NE Simulator - use on Machine 3 only",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "X1 - Task Polling (from LIS)",
+      "item": [
+        {
+          "name": "Poll Tasks for MME",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://10.80.20.14:8001/x1/tasks?ne=mme",
+              "protocol": "http",
+              "host": [
+                "10",
+                "80",
+                "20",
+                "14"
+              ],
+              "port": "8001",
+              "path": [
+                "x1",
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "ne",
+                  "value": "mme"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "NE - Get X1 Polling Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8002/x1/status",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8002",
+              "path": [
+                "x1",
+                "status"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "X2 - IRI Event Generation",
+      "item": [
+        {
+          "name": "NE - Get X2 Delivery Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8002/x2/status",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8002",
+              "path": [
+                "x2",
+                "status"
+              ]
+            }
+          }
+        },
+        {
+          "name": "NE - Get X2 Event Log",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8002/x2/log?limit=50",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8002",
+              "path": [
+                "x2",
+                "log"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "NE - Get X2 Log for specific LIID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8002/x2/log?liid=LI-2026-NIA-0100&limit=50",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8002",
+              "path": [
+                "x2",
+                "log"
+              ],
+              "query": [
+                {
+                  "key": "liid",
+                  "value": "LI-2026-NIA-0100"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "NE - Inject IRI Event (Manual)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"liid\": \"LI-2026-NIA-0100\",\n  \"event_name\": \"CallSetup\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8002/events/inject",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8002",
+              "path": [
+                "events",
+                "inject"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "X3 - CC Delivery",
+      "item": [
+        {
+          "name": "NE - Get X3 Delivery Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8002/x3/status",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8002",
+              "path": [
+                "x3",
+                "status"
+              ]
+            }
+          }
+        },
+        {
+          "name": "NE - Get X3 CC Log",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8002/x3/log?limit=50",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8002",
+              "path": [
+                "x3",
+                "log"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Configuration",
+      "item": [
+        {
+          "name": "NE - Get Configuration",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8002/config",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8002",
+              "path": [
+                "config"
+              ]
+            }
+          }
+        },
+        {
+          "name": "NE - Toggle Auto-Generation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true,\n  \"interval\": 10\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8002/auto-generation",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8002",
+              "path": [
+                "auto-generation"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "NE - Health Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8002/health",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8002",
+              "path": [
+                "health"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "LIS Check (from NE machine)",
+      "item": [
+        {
+          "name": "LIS - Get X2 Delivery Log",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://10.80.20.14:8001/x2/iri/log?liid=LI-2026-NIA-0100",
+              "protocol": "http",
+              "host": [
+                "10",
+                "80",
+                "20",
+                "14"
+              ],
+              "port": "8001",
+              "path": [
+                "x2",
+                "iri",
+                "log"
+              ],
+              "query": [
+                {
+                  "key": "liid",
+                  "value": "LI-2026-NIA-0100"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,220 @@
+{
+  "info": {
+    "name": "LIS-4G - Machine 1 (LEA at 10.80.20.50)",
+    "description": "Postman collection for LEA Agent - use on Machine 1 only",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "HI1 - Warrant Management (to LIS)",
+      "item": [
+        {
+          "name": "CREATE Warrant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"liid\": \"LI-2026-NIA-0100\",\n  \"warrant_reference\": \"W-2026-98765\",\n  \"warrant_status\": \"Active\",\n  \"warrant_start_date\": \"2026-06-21T00:00:00Z\",\n  \"warrant_end_date\": \"2026-12-21T23:59:59Z\",\n  \"target_identifier_value\": \"+1234567890\",\n  \"target_identifier_type\": \"MSISDN\",\n  \"delivery_endpoint\": {\n    \"address\": \"10.80.20.50\",\n    \"port\": 21,\n    \"protocol\": \"FTP\"\n  },\n  \"hi1_parameters\": {\n    \"sender_identifier\": \"LEA-MUMBAI-001\",\n    \"receiver_identifier\": \"JIONET-CENTRAL\",\n    \"transaction_id\": \"550e8400-e29b-41d4-a716-446655440001\",\n    \"action_identifier\": 0,\n    \"timestamp\": \"2026-06-21T10:00:00Z\",\n    \"object_identifier\": \"auth-obj-001\"\n  }\n}"
+            },
+            "url": {
+              "raw": "http://10.80.20.14:8001/hi1/warrants/activate",
+              "protocol": "http",
+              "host": [
+                "10",
+                "80",
+                "20",
+                "14"
+              ],
+              "port": "8001",
+              "path": [
+                "hi1",
+                "warrants",
+                "activate"
+              ]
+            }
+          }
+        },
+        {
+          "name": "LIST All Warrants",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://10.80.20.14:8001/hi1/warrants/list",
+              "protocol": "http",
+              "host": [
+                "10",
+                "80",
+                "20",
+                "14"
+              ],
+              "port": "8001",
+              "path": [
+                "hi1",
+                "warrants",
+                "list"
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE Warrant",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "http://10.80.20.14:8001/hi1/warrants/delete?liid=LI-2026-NIA-0100",
+              "protocol": "http",
+              "host": [
+                "10",
+                "80",
+                "20",
+                "14"
+              ],
+              "port": "8001",
+              "path": [
+                "hi1",
+                "warrants",
+                "delete"
+              ],
+              "query": [
+                {
+                  "key": "liid",
+                  "value": "LI-2026-NIA-0100"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "X1 - Task Provisioning (check LIS)",
+      "item": [
+        {
+          "name": "Poll Tasks for MME",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://10.80.20.14:8001/x1/tasks?ne=mme",
+              "protocol": "http",
+              "host": [
+                "10",
+                "80",
+                "20",
+                "14"
+              ],
+              "port": "8001",
+              "path": [
+                "x1",
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "ne",
+                  "value": "mme"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "X2/X3 - Delivery Status (check LIS)",
+      "item": [
+        {
+          "name": "Get X2 IRI Delivery Log",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://10.80.20.14:8001/x2/iri/log",
+              "protocol": "http",
+              "host": [
+                "10",
+                "80",
+                "20",
+                "14"
+              ],
+              "port": "8001",
+              "path": [
+                "x2",
+                "iri",
+                "log"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get X3 CC Delivery Log",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://10.80.20.14:8001/x3/cc/log",
+              "protocol": "http",
+              "host": [
+                "10",
+                "80",
+                "20",
+                "14"
+              ],
+              "port": "8001",
+              "path": [
+                "x3",
+                "cc",
+                "log"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "LEA Agent API (local)",
+      "item": [
+        {
+          "name": "List CC Files Received",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8443/cc/files/list",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8443",
+              "path": [
+                "cc",
+                "files",
+                "list"
+              ]
+            }
+          }
+        },
+        {
+          "name": "FTP Server Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8443/ftp/server/status",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8443",
+              "path": [
+                "ftp",
+                "server",
+                "status"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "info": {
+    "name": "LIS-4G - Machine 3 (NE) - SIMPLE",
+    "description": "Essential APIs only for NE Simulator",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Step 1: Check X1 Polling Status (connected to LIS?)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "http://localhost:8002/x1/status",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8002",
+          "path": [
+            "x1",
+            "status"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Step 2: Check X2 Events Generated (by NE)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "http://localhost:8002/x2/log",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8002",
+          "path": [
+            "x2",
+            "log"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Step 3: Manually Inject X2 Event (optional)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"liid\": \"LI-2026-NIA-0100\",\n  \"event_name\": \"CallSetup\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8002/events/inject",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8002",
+          "path": [
+            "events",
+            "inject"
+          ]
+        }
+      }
+    }
+  ]
+}

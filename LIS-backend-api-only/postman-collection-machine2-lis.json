@@ -1,0 +1,324 @@
+{
+  "info": {
+    "name": "LIS-4G - Machine 2 (LIS at 10.80.20.14)",
+    "description": "Postman collection for LIS Server - use on Machine 2 only",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "HI1 - Warrant Management",
+      "item": [
+        {
+          "name": "CREATE Warrant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"liid\": \"LI-2026-NIA-0100\",\n  \"warrant_reference\": \"W-2026-98765\",\n  \"warrant_status\": \"Active\",\n  \"warrant_start_date\": \"2026-06-21T00:00:00Z\",\n  \"warrant_end_date\": \"2026-12-21T23:59:59Z\",\n  \"target_identifier_value\": \"+1234567890\",\n  \"target_identifier_type\": \"MSISDN\",\n  \"delivery_endpoint\": {\n    \"address\": \"10.80.20.50\",\n    \"port\": 21,\n    \"protocol\": \"FTP\"\n  },\n  \"hi1_parameters\": {\n    \"sender_identifier\": \"LEA-MUMBAI-001\",\n    \"receiver_identifier\": \"JIONET-CENTRAL\",\n    \"transaction_id\": \"550e8400-e29b-41d4-a716-446655440001\",\n    \"action_identifier\": 0,\n    \"timestamp\": \"2026-06-21T10:00:00Z\",\n    \"object_identifier\": \"auth-obj-001\"\n  }\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8001/hi1/warrants/activate",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8001",
+              "path": [
+                "hi1",
+                "warrants",
+                "activate"
+              ]
+            }
+          }
+        },
+        {
+          "name": "LIST All Warrants",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8001/hi1/warrants/list",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8001",
+              "path": [
+                "hi1",
+                "warrants",
+                "list"
+              ]
+            }
+          }
+        },
+        {
+          "name": "LIST Active Warrants Only",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8001/hi1/warrants/list?status=Active",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8001",
+              "path": [
+                "hi1",
+                "warrants",
+                "list"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "Active"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE Warrant",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "http://localhost:8001/hi1/warrants/delete?liid=LI-2026-NIA-0100",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8001",
+              "path": [
+                "hi1",
+                "warrants",
+                "delete"
+              ],
+              "query": [
+                {
+                  "key": "liid",
+                  "value": "LI-2026-NIA-0100"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "X1 - Task Provisioning",
+      "item": [
+        {
+          "name": "Poll Tasks for MME",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8001/x1/tasks?ne=mme",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8001",
+              "path": [
+                "x1",
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "ne",
+                  "value": "mme"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Poll Tasks for SGW",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8001/x1/tasks?ne=sgw",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8001",
+              "path": [
+                "x1",
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "ne",
+                  "value": "sgw"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Poll Tasks for PGW",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8001/x1/tasks?ne=pgw",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8001",
+              "path": [
+                "x1",
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "ne",
+                  "value": "pgw"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "X2 - IRI Delivery Logs",
+      "item": [
+        {
+          "name": "Get X2 IRI Delivery Log",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8001/x2/iri/log",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8001",
+              "path": [
+                "x2",
+                "iri",
+                "log"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get X2 IRI Log (specific LIID)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8001/x2/iri/log?liid=LI-2026-NIA-0100",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8001",
+              "path": [
+                "x2",
+                "iri",
+                "log"
+              ],
+              "query": [
+                {
+                  "key": "liid",
+                  "value": "LI-2026-NIA-0100"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Clear X2 IRI Log",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "http://localhost:8001/x2/iri/log/clear",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8001",
+              "path": [
+                "x2",
+                "iri",
+                "log",
+                "clear"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "X3 - CC Delivery Logs",
+      "item": [
+        {
+          "name": "Get X3 CC Delivery Log",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8001/x3/cc/log",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8001",
+              "path": [
+                "x3",
+                "cc",
+                "log"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Clear X3 CC Log",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "http://localhost:8001/x3/cc/log/clear",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8001",
+              "path": [
+                "x3",
+                "cc",
+                "log",
+                "clear"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "LIS Health Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8001/health",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8001",
+              "path": [
+                "health"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
