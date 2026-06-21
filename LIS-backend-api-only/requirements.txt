@@ -2,9 +2,9 @@ FastAPI==0.104.1
 uvicorn==0.24.0
 pydantic==2.5.0
 pydantic-settings==2.1.0
-pyftpdlib==1.8.0
+pyftpdlib==1.5.10
 pyopenssl==26.3.0
-cryptography==41.0.7
+cryptography==49.0.0
 requests==2.31.0
 paramiko==3.4.0
 pyyaml==6.0.1

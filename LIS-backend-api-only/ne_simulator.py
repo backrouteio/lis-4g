@@ -163,17 +163,28 @@ class NESimulator:
                 await asyncio.sleep(self.config.x1_poll_interval)
 
     async def generate_events(self):
-        """Auto-generate IRI/CC events"""
-        event_types = ['CallSetup', 'CallRelease', 'SMS', 'DataConnection', 'LocationUpdate']
+        """Auto-generate IRI/CC events based on NE type"""
+        iri_event_types = ['CallSetup', 'CallRelease', 'SMS', 'DataConnection', 'LocationUpdate']
+        cc_event_types = ['VoiceData', 'DataPacket', 'ContentStream']
 
         while True:
             if self.config.auto_generation_enabled and self.active_liids:
                 liid = random.choice(self.active_liids)
-                event_name = random.choice(event_types)
-                event_id = f"evt-{uuid.uuid4().hex[:8]}"
 
-                self.db.log_event(liid, event_id, event_name)
-                logger.info(f"Auto-gen: {event_name} for LIID={liid}")
+                # All NEs generate X2 IRI events
+                iri_event = random.choice(iri_event_types)
+                iri_event_id = f"iri-{uuid.uuid4().hex[:8]}"
+                self.db.log_event(liid, iri_event_id, iri_event)
+                logger.info(f"X2 IRI: {iri_event} for LIID={liid} (NE={self.config.ne_type})")
+
+                # Only SGW and PGW generate X3 CC events
+                if self.config.ne_type.upper() in ['SGW', 'PGW']:
+                    cc_event = random.choice(cc_event_types)
+                    cc_event_id = f"cc-{uuid.uuid4().hex[:8]}"
+                    self.db.log_event(liid, cc_event_id, cc_event)
+                    logger.info(f"X3 CC: {cc_event} for LIID={liid} (NE={self.config.ne_type})")
+                elif self.config.ne_type.upper() == 'MME':
+                    logger.info(f"MME: X3 CC skipped (control plane only)")
 
             await asyncio.sleep(self.config.auto_generation_interval)
 
@@ -308,13 +319,23 @@ async def toggle_auto_generation(config: dict):
 @app.get("/health", tags=["Health"])
 async def health_check():
     """NE simulator health status"""
+    ne_type = simulator.config.ne_type.upper()
+
+    # X3 available only for SGW/PGW
+    x3_delivery = "READY" if ne_type in ['SGW', 'PGW'] else "NOT_AVAILABLE (MME is control plane only)"
+
     return {
         "status": "OK",
         "service": "NE-4G Simulator",
-        "ne_type": simulator.config.ne_type,
+        "ne_type": ne_type,
         "x1_polling": "ACTIVE" if simulator.lis_connected else "DISCONNECTED",
-        "x2_delivery": "READY",
-        "x3_delivery": "READY"
+        "x2_iri_delivery": "READY (all NE types)",
+        "x3_cc_delivery": x3_delivery,
+        "interfaces": {
+            "X1": "Task Provisioning (all)",
+            "X2": "IRI Delivery (all)",
+            "X3": "CC Delivery (SGW/PGW only)" if ne_type in ['SGW', 'PGW'] else "N/A"
+        }
     }
 
 # ============================================================================
@@ -364,7 +385,13 @@ def main():
     logger.info("="*70)
     logger.info(f"NE-4G Simulator - Starting ({config.ne_type})")
     logger.info(f"X1 Polling: {args.lis_ip}:{args.lis_port}")
-    logger.info(f"X2/X3: TCP {config.x2_port}, UDP {config.x3_port}")
+    logger.info(f"X2 IRI: TCP {config.x2_port}")
+
+    if config.ne_type.upper() in ['SGW', 'PGW']:
+        logger.info(f"X3 CC: UDP {config.x3_port} (enabled for {config.ne_type})")
+    else:
+        logger.info(f"X3 CC: UDP {config.x3_port} (DISABLED - {config.ne_type} is control plane only)")
+
     logger.info(f"Auto-generation: {'ENABLED' if args.auto else 'DISABLED'}")
     logger.info("="*70)
 
